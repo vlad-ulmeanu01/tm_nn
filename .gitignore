@@ -1,0 +1,7 @@
+idea/
+__pycache__/
+MakeRefined/csvs/
+MakeRefined/__pycache__/
+MakeRefined/merged_unrefined.csv
+MakeRefined/refined.csv
+MakeRefined/refinedNoAug.csv

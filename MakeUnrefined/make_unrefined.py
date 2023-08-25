@@ -3,9 +3,9 @@ import os
 
 import make_input_from_csv_pair
 
-
 cnt, finalCnt = 0, 581
 skip = ["/", "Dirt-0"]
+
 for path, subdirs, files in os.walk("/home/vlad/Desktop/Probleme/Trackmania/RawDataset/Others/"):
     ok = True
     for s in skip:
