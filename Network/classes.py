@@ -9,7 +9,7 @@ class SharedNet(torch.nn.Module):
         self.relu = torch.nn.ReLU()
         self.drop = torch.nn.Dropout(0.1)
 
-        self.fc1 = torch.nn.Linear(1626, 1600)
+        self.fc1 = torch.nn.Linear(1820, 1600)
         self.fc2 = torch.nn.Linear(1600, 800)
         self.fc3 = torch.nn.Linear(800, 400)
         self.fc4 = torch.nn.Linear(400, 200)
@@ -81,9 +81,9 @@ class Dataset(torch.utils.data.Dataset):
 
     # Generates one sample of data.
     def __getitem__(self, ind):
-        xs = torch.FloatTensor(self.dfr.iloc[self.l + ind, 0: 1626].values)
-        ys = torch.FloatTensor(self.dfr.iloc[self.l + ind, 1626: 1627].values),\
-             torch.FloatTensor(self.dfr.iloc[self.l + ind, 1627: 1628].values),\
-             torch.FloatTensor(self.dfr.iloc[self.l + ind, 1628: 1757].values)
+        xs = torch.FloatTensor(self.dfr.iloc[self.l + ind, 0: 1820].values)
+        ys = torch.FloatTensor(self.dfr.iloc[self.l + ind, 1820: 1821].values),\
+             torch.FloatTensor(self.dfr.iloc[self.l + ind, 1821: 1822].values),\
+             torch.FloatTensor(self.dfr.iloc[self.l + ind, 1822: 1951].values)
 
         return xs, ys
