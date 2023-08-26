@@ -8,7 +8,7 @@ def getNegExp(x):
 Regula Freedman–Diaconis.
 imi iau niste puncte de interes din interval. pentru fiecare punct din v, vad cat de departe este de fiecare punct ales.
 """
-def refineValues(v: list, m = None, M = None, cntIntervals = None, maxDistToPoint = None):
+def refineGetPoints(v: list, m = None, M = None, cntIntervals = None, maxDistToPoint = None):
     binWidth = None
     if m is None:
         m = min(v)
@@ -28,7 +28,14 @@ def refineValues(v: list, m = None, M = None, cntIntervals = None, maxDistToPoin
     if maxDistToPoint is None:
         maxDistToPoint = 0.5 * binWidth
 
+    return pts, maxDistToPoint
+
+def refineValues(v: list, m = None, M = None, cntIntervals = None, maxDistToPoint = None):
+    pts, maxDistToPoint = refineGetPoints(v, m, M, cntIntervals, maxDistToPoint)
     return [[getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts] for x in v]
+
+def refineValue(x, pts, maxDistToPoint):
+    return [getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts]
 
 """
 vreau viteza x in km/h.
@@ -65,4 +72,3 @@ def reverseGetSteer(output):
         [x], m = MIN_STEER, M = MAX_STEER, cntIntervals = CNT_INTERVALS_STEER, maxDistToPoint = STEER_MAX_DIST_TO_POINT
     )[0]) - np.array(output)) for x in xPosib]
     return xPosib[np.argmin(errs)]
-

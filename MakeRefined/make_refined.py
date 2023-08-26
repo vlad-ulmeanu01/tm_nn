@@ -1,25 +1,31 @@
 import pandas as pd
 import numpy as np
+import copy
 import os
-
 import refine_utils
 
-dfr = pd.read_csv("merged_unrefined.csv", skipinitialspace = True)
+dfr = pd.read_csv("/home/vlad/Desktop/Probleme/Trackmania/merged_unrefined.csv", skipinitialspace = True)
 
 coefs, augCoefs = [], []
 szCoefs = [0] * 3
 for ch in ['x', 'y', 'z']:
-    for i in range(21):
-        coefs.append(refine_utils.refineValues(dfr[f"coef_{ch}{i}"]))
-        szCoefs[ord(ch) - ord('x')] += len(coefs[-1][0])
-        print(f"{ch}{i} {len(coefs[-1][0])}")
+    if ch == 'x':
+        for i in range(21): #ma ocup si de augumentare. flip la coeficientii lui x tb sa rezulte in flip la steer.
+            arr = copy.deepcopy(list(dfr[f"coef_{ch}{i}"]))
+            arr.extend(list(np.array(dfr[f"coef_{ch}{i}"]) * -1))
 
-        if ch == 'x': #ma ocup si de augumentare. flip la coeficientii lui x tb sa rezulte in flip la steer.
-            augCoefs.append(list(np.array(refine_utils.refineValues(dfr[f"coef_{ch}{i}"])) * -1))
+            coefs.append(refine_utils.refineValues(arr))
+            szCoefs[ord(ch) - ord('x')] += len(coefs[-1][0])
+            print(f"{ch}{i} {len(coefs[-1][0])}")
+    else:
+        for i in range(21):
+            coefs.append(refine_utils.refineValues(dfr[f"coef_{ch}{i}"]))
+            szCoefs[ord(ch) - ord('x')] += len(coefs[-1][0])
+            print(f"{ch}{i} {len(coefs[-1][0])}")
 
 print(szCoefs)
 
-fout = open("refined.csv", "w")
+fout = open("/home/vlad/Desktop/Probleme/Trackmania/refined_fix.csv", "w")
 
 #viteza.
 fout.write(''.join([f"v{i}, " for i in range(5)]))
@@ -85,8 +91,11 @@ for i in range(n):
 
         #coeficienti (x/y/z).
         for j in range(21 * 3):
-            if aug == 1 and j < 21: #afisez flip x in loc de normal.
-                fout.write(''.join([f"{round(augCoefs[j][i][z], 3)}, " for z in range(len(augCoefs[j][i]))]))
+            if j < 21: #afisez flip x in loc de normal.
+                if aug == 0:
+                    fout.write(''.join([f"{round(coefs[j][i][z], 3)}, " for z in range(len(coefs[j][i]))]))
+                else:
+                    fout.write(''.join([f"{round(coefs[j][i + n][z], 3)}, " for z in range(len(coefs[j][i + n]))]))
             else:
                 fout.write(''.join([f"{round(coefs[j][i][z], 3)}, " for z in range(len(coefs[j][i]))]))
 
