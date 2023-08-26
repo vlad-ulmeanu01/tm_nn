@@ -5,8 +5,10 @@ import sys
 import classes
 
 net = classes.MainNet()
-loss = classes.SharedLoss()
+criterion = classes.SharedLoss()
 optimizer = torch.optim.Adam(net.parameters())
+
+#net.load_state_dict(torch.load("NetTM_partial.pt"))
 
 dfr = pd.read_csv("../MakeRefined/refined.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
@@ -23,15 +25,17 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
 
     for x, yTruth in trainGen:
         yPred = net(x)
-        lossVal = loss(yPred, yTruth)
+        loss = criterion(yPred, yTruth)
 
         optimizer.zero_grad()
         loss.backward()
 
         optimizer.step()
 
-        totalLoss += lossVal.item() * x.size()[0]  # lossVal.item() este deja "media" din BCELoss.
+        totalLoss += loss.item() * x.size()[0]  # lossVal.item() este deja "media" din BCELoss.
         fullBatchSizes += x.size()[0]
+
+        #print(f"(partial) totalLoss = {totalLoss}, fullBatchSizes = {fullBatchSizes}")
 
     trainLosses.append(totalLoss / fullBatchSizes)
 
@@ -40,11 +44,22 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
     with torch.set_grad_enabled(False):
         testLosses.append(0)
 
+        totalCount = 0
         for x, yTruth in testGen:
             yPred = net(x)
-            lossVal = loss(yPred, yTruth)
+            loss = criterion(yPred, yTruth)
             testLosses[-1] += loss.item()
+            totalCount += x.size()[0]
 
-        print(f"Average Test Loss: {testLosses[-1]}.")
+        print(f"Average Test Loss: {testLosses[-1] / totalCount}.")
+
+    torch.save(net.state_dict(), f"NetTM_partial.pt")
+    print(f"Saved NetTM_partial{epoch + 1}.pt.")
 
     sys.stdout.flush()
+
+print(f"trainLosses array = {trainLosses}")
+print(f"testLosses array = {testLosses}")
+
+#torch.save(net.state_dict(), "NetTM.pt")
+#print(f"Saved NetTM.pt.")

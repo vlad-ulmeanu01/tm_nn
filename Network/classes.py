@@ -58,12 +58,13 @@ class SharedLoss(torch.nn.Module):
     def __init__(self):
         super(SharedLoss, self).__init__()
         self.loss_class = torch.nn.BCELoss()
-        self.loss_regress = torch.nn.NLLLoss()
+        self.loss_regress = torch.nn.MSELoss() #torch.nn.NLLLoss()
 
     # presupun ca backward() se autocalculeaza dupa forward?
     def forward(self, yPred, yTruth):
+        #!!y* este tuple!!!
         #y este format din [1 val pt gas, 1 val pt brake, 129 valori pentru steer].
-        return self.loss_class(yPred[0], yTruth[0]) + self.loss_class(yPred[1], yTruth[1]) + self.loss_regress(yPred[2:], yTruth[2:])
+        return self.loss_class(yPred[0], yTruth[0]) + self.loss_class(yPred[1], yTruth[1]) + 10 * self.loss_regress(yPred[2], yTruth[2])
 
 class Dataset(torch.utils.data.Dataset):
     #Dataset cu 2n elemente. 1 normal, 1 augumentat, unul dupa altul.
