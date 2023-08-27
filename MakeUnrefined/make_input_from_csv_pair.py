@@ -5,7 +5,7 @@ import numpy as np
 import time as ty
 import copy
 
-import utils
+import nr_utils
 
 """
 primesc doua replay-uri, R1 si R2.
@@ -127,11 +127,11 @@ def make_input_from_pair(fName1: str, fName2: str) -> str:
     material = [0] * 4 #road, air, dirt, grass.
 
     n = tuple([len(dfr[_]["time"]) for _ in range(2)])
-    time = [utils.normalize([dfr[0]["time"][i] for i in range(n[0])], m = 0, M = utils.MAX_VALUE_TIME),
-            utils.normalize([dfr[1]["time"][i] for i in range(n[1])], m = 0, M = utils.MAX_VALUE_TIME)]
-    xs = [utils.normalize([dfr[0]["x"][i] for i in range(n[0])], m = 0, M = utils.MAX_VALUE_XZ), utils.normalize([dfr[1]["x"][i] for i in range(n[1])], m = 0, M = utils.MAX_VALUE_XZ)]
-    ys = [utils.normalize([dfr[0]["y"][i] for i in range(n[0])], m = 0, M = utils.MAX_VALUE_Y), utils.normalize([dfr[1]["y"][i] for i in range(n[1])], m = 0, M = utils.MAX_VALUE_Y)]
-    zs = [utils.normalize([dfr[0]["z"][i] for i in range(n[0])], m = 0, M = utils.MAX_VALUE_XZ), utils.normalize([dfr[1]["z"][i] for i in range(n[1])], m = 0, M = utils.MAX_VALUE_XZ)]
+    time = [nr_utils.normalize([dfr[0]["time"][i] for i in range(n[0])], m = 0, M = nr_utils.MAX_VALUE_TIME),
+            nr_utils.normalize([dfr[1]["time"][i] for i in range(n[1])], m = 0, M = nr_utils.MAX_VALUE_TIME)]
+    xs = [nr_utils.normalize([dfr[0]["x"][i] for i in range(n[0])], m = 0, M = nr_utils.MAX_VALUE_XZ), nr_utils.normalize([dfr[1]["x"][i] for i in range(n[1])], m = 0, M = nr_utils.MAX_VALUE_XZ)]
+    ys = [nr_utils.normalize([dfr[0]["y"][i] for i in range(n[0])], m = 0, M = nr_utils.MAX_VALUE_Y), nr_utils.normalize([dfr[1]["y"][i] for i in range(n[1])], m = 0, M = nr_utils.MAX_VALUE_Y)]
+    zs = [nr_utils.normalize([dfr[0]["z"][i] for i in range(n[0])], m = 0, M = nr_utils.MAX_VALUE_XZ), nr_utils.normalize([dfr[1]["z"][i] for i in range(n[1])], m = 0, M = nr_utils.MAX_VALUE_XZ)]
 
     kdt = sklearn.neighbors.KDTree([[xs[1][i], ys[1][i], zs[1][i]] for i in range(n[1])], leaf_size = 30, metric = "euclidean")
 
@@ -144,7 +144,7 @@ def make_input_from_pair(fName1: str, fName2: str) -> str:
             timeSinceLastBrake += 10
             timeSpentBraking = 0
 
-        modeMaterial = utils.getMode([dfr[0][f"wheel{j}_material"][l] for j in range(4)], 32)
+        modeMaterial = nr_utils.getMode([dfr[0][f"wheel{j}_material"][l] for j in range(4)], 32)
         if l == 0: #jocul crede ca sunt in aer initial.
             material = [1, 0, 0, 0]
             timeSinceLastAir += 10
@@ -164,10 +164,10 @@ def make_input_from_pair(fName1: str, fName2: str) -> str:
                 else:
                     material = [1, 0, 0, 0]
 
-        if l % utils.FOR_JUMP != 0:
+        if l % nr_utils.FOR_JUMP != 0:
             continue
 
-        pre_l = max(0, l - utils.MAIN_REPLAY_PRECEDENT_LENGTH + 1)
+        pre_l = max(0, l - nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH + 1)
         indexClosestPtR2 = int(kdt.query([[xs[0][l], ys[0][l], zs[0][l]]], k = 1, return_distance = False))
 
         #rotesc sistemul de coordonate ai (xs[0][l], ys[0][l], zs[0][l]) sa fie originea.
@@ -183,35 +183,35 @@ def make_input_from_pair(fName1: str, fName2: str) -> str:
 
         #vreau ca partea de timp "pre-" sa se termine fix inainte de 0.
         tryTime = list(np.array(time[0][pre_l : l+1]) - (time[0][l] + timeCuanta)) +\
-                  list(np.array(time[1][indexClosestPtR2 : indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH]) + (nextTime - time[1][indexClosestPtR2]))
+                  list(np.array(time[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]) + (nextTime - time[1][indexClosestPtR2]))
 
-        tryXs = tmpXs[0][pre_l : l+1] + tmpXs[1][indexClosestPtR2 : indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH]
-        tryYs = tmpYs[0][pre_l : l+1] + tmpYs[1][indexClosestPtR2 : indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH]
-        tryZs = tmpZs[0][pre_l : l+1] + tmpZs[1][indexClosestPtR2 : indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH]
+        tryXs = tmpXs[0][pre_l : l+1] + tmpXs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
+        tryYs = tmpYs[0][pre_l : l+1] + tmpYs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
+        tryZs = tmpZs[0][pre_l : l+1] + tmpZs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
 
         bestCoefsX, bestFitX = fitInterval(tryTime, tryXs, 4)
         bestCoefsY, bestFitY = fitInterval(tryTime, tryYs, 4)
         bestCoefsZ, bestFitZ = fitInterval(tryTime, tryZs, 4)
-        bestR = indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH
+        bestR = indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH
 
-        nowFitX, nowFitY, nowFitZ, r = bestFitX, bestFitY, bestFitZ, indexClosestPtR2 + utils.MIN_INTERVAL_LENGTH
+        nowFitX, nowFitY, nowFitZ, r = bestFitX, bestFitY, bestFitZ, indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH
         minCntTries = 3 #las minim 3 incercari.
-        while r < n[1] and (minCntTries > 0 or (nowFitX > utils.MIN_THRESH_XZ and nowFitY > utils.MIN_THRESH_Y and nowFitZ > utils.MIN_THRESH_XZ)):
+        while r < n[1] and (minCntTries > 0 or (nowFitX > nr_utils.MIN_THRESH_XZ and nowFitY > nr_utils.MIN_THRESH_Y and nowFitZ > nr_utils.MIN_THRESH_XZ)):
             minCntTries -= 1
             nextTime = tryTime[-1] + timeCuanta
 
-            tryTime.extend(list(np.array(time[1][r : r + utils.INTERVAL_DIFF]) + (nextTime - time[1][r])))
-            tryXs.extend(tmpXs[1][r : r + utils.INTERVAL_DIFF])
-            tryYs.extend(tmpYs[1][r : r + utils.INTERVAL_DIFF])
-            tryZs.extend(tmpZs[1][r : r + utils.INTERVAL_DIFF])
+            tryTime.extend(list(np.array(time[1][r : r + nr_utils.INTERVAL_DIFF]) + (nextTime - time[1][r])))
+            tryXs.extend(tmpXs[1][r : r + nr_utils.INTERVAL_DIFF])
+            tryYs.extend(tmpYs[1][r : r + nr_utils.INTERVAL_DIFF])
+            tryZs.extend(tmpZs[1][r : r + nr_utils.INTERVAL_DIFF])
 
-            r = min(n[1], r + utils.INTERVAL_DIFF)
+            r = min(n[1], r + nr_utils.INTERVAL_DIFF)
 
             nowCoefsX, nowFitX = fitInterval(tryTime, tryXs, 4)
             nowCoefsY, nowFitY = fitInterval(tryTime, tryYs, 4)
             nowCoefsZ, nowFitZ = fitInterval(tryTime, tryZs, 4)
 
-            if (nowFitX > utils.MIN_THRESH_XZ and nowFitY > utils.MIN_THRESH_Y and nowFitZ > utils.MIN_THRESH_XZ) or\
+            if (nowFitX > nr_utils.MIN_THRESH_XZ and nowFitY > nr_utils.MIN_THRESH_Y and nowFitZ > nr_utils.MIN_THRESH_XZ) or\
                 (nowFitX > bestFitX and nowFitY > bestFitY and nowFitZ > bestFitZ):
                 bestCoefsX, bestFitX = nowCoefsX, nowFitX
                 bestCoefsY, bestFitY = nowCoefsY, nowFitY

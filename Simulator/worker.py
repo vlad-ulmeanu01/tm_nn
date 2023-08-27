@@ -29,7 +29,6 @@ class Worker():
 
     #este apelat de client la sfarsitul unei simulari.
     def process_input_stack(self, iface: TMInterface):
-        print(self.input_stack[self.input_stack_index][1])
         self.oracle.update_state_series(self.input_stack[self.input_stack_index][1])
 
         self.input_stack_index -= 1

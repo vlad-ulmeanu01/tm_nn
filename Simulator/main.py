@@ -9,12 +9,12 @@ import sys
 import os
 
 import worker
-import utils
+import sim_utils
 
 class MainClient(Client):
     def __init__(self, w: worker.Worker):
         self.GAP_TIME = 10 #ms, lungimea unui cadru.
-        self.IND_STEER, self.IND_PUSH_UP, self.IND_PUSH_DOWN = 0, 1, 2
+        self.IND_STEER, self.IND_GAS, self.IND_BRAKE = 0, 1, 2
         self.CUTOFF_TIME = 0
 
         self.processed_output_dir = "./processed_outputs/output_"
@@ -92,7 +92,7 @@ class MainClient(Client):
                 print(f"did finish track!")
 
             outName = f"{self.processed_output_dir}{str(time.time()).replace('.', '')}_{self.last_time_in_sim_step}.txt"
-            utils.write_processed_output(outName, self.worker.input_stack[self.worker.input_stack_index][0], self.GAP_TIME)
+            sim_utils.write_processed_output(outName, self.worker.input_stack[self.worker.input_stack_index][0], self.GAP_TIME)
             print(f"wrote to {outName}!")
 
             self.worker.process_input_stack(iface)
@@ -137,8 +137,8 @@ class MainClient(Client):
 
         #steer, push_up, push_down events
         for arr, event_type, value_type in ((input_array[self.IND_STEER], rev_control_names["Steer (analog)"], "analog"), #"Steer" nu mai exista.
-                                            (input_array[self.IND_PUSH_UP], rev_control_names["Accelerate"], "binary"),
-                                            (input_array[self.IND_PUSH_DOWN], rev_control_names["Brake"], "binary")):
+                                            (input_array[self.IND_GAS], rev_control_names["Accelerate"], "binary"),
+                                            (input_array[self.IND_BRAKE], rev_control_names["Brake"], "binary")):
             ebd.events.append(make_event(event_type, 0, value_type, arr[0]))
             for i in range(1, len(arr)):
                 if arr[i] != arr[i-1]:

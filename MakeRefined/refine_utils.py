@@ -34,7 +34,9 @@ def refineValues(v: list, m = None, M = None, cntIntervals = None, maxDistToPoin
     pts, maxDistToPoint = refineGetPoints(v, m, M, cntIntervals, maxDistToPoint)
     return [[getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts] for x in v]
 
-def refineValue(x, pts, maxDistToPoint):
+def refineValue(x, pts, maxDistToPoint = None):
+    if maxDistToPoint is None:
+        maxDistToPoint = 0.5 * (pts[1] - pts[0])
     return [getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts]
 
 """
