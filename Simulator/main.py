@@ -15,7 +15,7 @@ class MainClient(Client):
     def __init__(self, w: worker.Worker):
         self.GAP_TIME = 10 #ms, lungimea unui cadru.
         self.IND_STEER, self.IND_PUSH_UP, self.IND_PUSH_DOWN = 0, 1, 2
-        self.CUTOFF_TIME = 7500 #pana unde ia in calcul EventBufferData.
+        self.CUTOFF_TIME = 0
 
         self.processed_output_dir = "./processed_outputs/output_"
 
@@ -61,8 +61,20 @@ class MainClient(Client):
             #la buffer daca trebuiau facute.
             iface.rewind_to_state(self.remembered_state)
             self.did_race_finish = False
+        elif not self.worker.is_client_redoing:
+            if time >= 0:
+                state = iface.get_simulation_state()
 
-        pass
+                # adaug in input_stack informatii despre cadrul curent: x, y, z, y, p, r, vx, vy, vz, wh_mat, wh_contact.
+                x, y, z = [round(a, 5) for a in state.position]
+                yaw, pitch, roll = [round(a, 5) for a in state.yaw_pitch_roll]
+                vx, vy, vz = [round(a, 5) for a in state.velocity]
+                wheel_materials = [state.simulation_wheels[i].real_time_state.contact_material_id for i in range(4)]
+                wheel_has_contact = [1 if state.simulation_wheels[i].real_time_state.has_ground_contact else 0 for i in
+                                     range(4)]
+
+                self.worker.input_stack[self.worker.input_stack_index][1].append(
+                    (x, y, z, yaw, pitch, roll, vx, vy, vz, wheel_materials, wheel_has_contact))
 
     def on_simulation_end(self, iface: TMInterface, result: int):
         print("All simulations finished?? You weren't supposed to see this you know")
@@ -75,6 +87,10 @@ class MainClient(Client):
         iface.prevent_simulation_finish()
 
         if not self.worker.is_client_redoing:
+            if target > 0: #chiar am terminat traseul pe bune.
+                self.worker.tmp_did_finish_track = True
+                print(f"did finish track!")
+
             outName = f"{self.processed_output_dir}{str(time.time()).replace('.', '')}_{self.last_time_in_sim_step}.txt"
             utils.write_processed_output(outName, self.worker.input_stack[self.worker.input_stack_index][0], self.GAP_TIME)
             print(f"wrote to {outName}!")
@@ -94,6 +110,10 @@ class MainClient(Client):
         pass
 
     def write_input_array_to_EventBufferData(self, iface: TMInterface, input_array: list):
+        assert(len(input_array[0]) == len(input_array[1]) and len(input_array[1]) == len(input_array[2]))
+        n = len(input_array[0])
+        self.CUTOFF_TIME = n * self.GAP_TIME #pun sa se termine fix dupa simularea ultimei bucati din input_array.
+
         ebd = copy.deepcopy(iface.get_event_buffer())
         ebd.events_duration = self.CUTOFF_TIME
 
