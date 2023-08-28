@@ -12,13 +12,13 @@ optimizer = torch.optim.Adam(net.parameters())
 
 dfr = pd.read_csv("../MakeRefined/refined.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
-pc = 0.9
+pc = 0.85
 
 trainGen = torch.utils.data.DataLoader(classes.Dataset(dfr, 0, int(pc * n)), batch_size = 100, shuffle = True, num_workers = 2)
 testGen = torch.utils.data.DataLoader(classes.Dataset(dfr, int(pc * n) + 1, n - 1), batch_size = 100)
 print("ok gen!")
 
-epochCnt = 100
+epochCnt = 25
 trainLosses, testLosses = [], []
 for epoch in range(epochCnt):  #Mini Batch gradient descent.
     totalLoss, fullBatchSizes = 0, 0
@@ -48,10 +48,11 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
         for x, yTruth in testGen:
             yPred = net(x)
             loss = criterion(yPred, yTruth)
-            testLosses[-1] += loss.item()
+            testLosses[-1] += loss.item() * x.size()[0]
             totalCount += x.size()[0]
 
-        print(f"Average Test Loss: {testLosses[-1] / totalCount}.")
+        testLosses[-1] /= totalCount
+        print(f"Average Test Loss: {testLosses[-1]}.")
 
     torch.save(net.state_dict(), f"NetTM_partial.pt")
     print(f"Saved NetTM_partial{epoch + 1}.pt.")

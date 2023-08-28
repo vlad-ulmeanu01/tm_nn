@@ -9,7 +9,7 @@ dfr = pd.read_csv("/home/vlad/Desktop/Probleme/Trackmania/merged_unrefined.csv",
 coefs, augCoefs = [], []
 szCoefs = [0] * 3
 for ch in ['x', 'y', 'z']:
-    if ch == 'x':
+    if False: #ch == 'x':
         for i in range(21): #ma ocup si de augumentare. flip la coeficientii lui x tb sa rezulte in flip la steer.
             arr = copy.deepcopy(list(dfr[f"coef_{ch}{i}"]))
             arr.extend(list(np.array(dfr[f"coef_{ch}{i}"]) * -1))
@@ -25,7 +25,7 @@ for ch in ['x', 'y', 'z']:
 
 print(szCoefs)
 
-fout = open("/home/vlad/Desktop/Probleme/Trackmania/refined_fix.csv", "w")
+fout = open("/home/vlad/Desktop/Probleme/Trackmania/refined.csv", "w")
 
 #viteza.
 fout.write(''.join([f"v{i}, " for i in range(5)]))
@@ -69,7 +69,7 @@ fout.write(''.join([f"s{i}, " for i in range(refine_utils.CNT_INTERVALS_STEER + 
 n = len(dfr["vx"])
 
 for i in range(n):
-    for aug in range(2): #aug == 0/1 <=> normal, flip x/steer.
+    for aug in [0]: #range(2): #aug == 0/1 <=> normal, flip x/steer.
         #viteza.
         arrSpeed = refine_utils.refineSpeed(np.linalg.norm(np.array([dfr["vx"][i], dfr["vy"][i], dfr["vz"][i]])) * 3.6)
         fout.write(''.join([f"{round(a, 3)}, " for a in arrSpeed]))
@@ -91,10 +91,10 @@ for i in range(n):
 
         #coeficienti (x/y/z).
         for j in range(21 * 3):
-            if j < 21: #afisez flip x in loc de normal.
+            if j < 21:
                 if aug == 0:
                     fout.write(''.join([f"{round(coefs[j][i][z], 3)}, " for z in range(len(coefs[j][i]))]))
-                else:
+                else: #afisez flip x in loc de normal.
                     fout.write(''.join([f"{round(coefs[j][i + n][z], 3)}, " for z in range(len(coefs[j][i + n]))]))
             else:
                 fout.write(''.join([f"{round(coefs[j][i][z], 3)}, " for z in range(len(coefs[j][i]))]))

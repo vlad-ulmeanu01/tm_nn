@@ -180,8 +180,8 @@ class Oracle:
         print(f"netInput size = {len(netInput)}.")
         yPred = self.net(torch.FloatTensor(netInput))
 
-        gasValue = 1 if yPred[0].item() > 0.5 else 0
-        brakeValue = 1 if yPred[1].item() > 0.5 else 0
+        gasValue = 1 if yPred[0][0] > yPred[0][1] else 0
+        brakeValue = 0 if yPred[1][0] > yPred[1][1] else 1
         steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
 
         print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
