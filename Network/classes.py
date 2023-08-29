@@ -1,7 +1,7 @@
 import pandas as pd
 import torch
 
-LEN_INPUT = 1626
+LEN_INPUT = 1820
 LEN_OUTPUT_GAS = 2
 LEN_OUTPUT_BRAKE = 2
 LEN_OUTPUT_STEER = 129
