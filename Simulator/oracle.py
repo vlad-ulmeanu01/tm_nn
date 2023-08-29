@@ -28,12 +28,12 @@ class Oracle:
         self.IND_WHEEL_MATERIALS = 9
         self.IND_WHEEL_CONTACT = 10
 
-        self.ht_points = sim_utils.load_export_points("export_pts.txt")
+        self.ht_points = sim_utils.load_export_points("export_pts_noaug.txt")
 
-        self.dfrRacingLine = pd.read_csv("racing_line.csv", skipinitialspace = True)
+        self.dfrRacingLine = pd.read_csv("racing_line_tas_train.csv", skipinitialspace = True)
 
         self.net = classes.MainNet()
-        self.net.load_state_dict(torch.load("NetTM_run1_fixed_soft.pt"))
+        self.net.load_state_dict(torch.load("NetTM_CE_Relu.pt"))
         self.net.eval()
 
         #de cat timp franez, cand am franat ultima data.
@@ -171,18 +171,21 @@ class Oracle:
                 bestCoefsZ, bestFitZ = nowCoefsZ, nowFitZ
                 bestR = r
 
-        print(f"pre_l {pre_l} bestR {bestR}.")
+        #print(f"pre_l {pre_l} bestR {bestR}.")
 
         for ch, bestCoefs in [('x', bestCoefsX), ('y', bestCoefsY), ('z', bestCoefsZ)]:
             for i in range(21):
                 netInput.extend(refine_utils.refineValue(bestCoefs[i], self.ht_points[f"{ch}{i}"]))
 
-        print(f"netInput size = {len(netInput)}.")
+        #print(f"netInput size = {len(netInput)}.")
         yPred = self.net(torch.FloatTensor(netInput))
 
+        #print(f"gas: {round(yPred[0][0], 2)} vs {round(yPred[0][1], 2)}, brake: {round(yPred[1][0], 2)} vs {round(yPred[1][1], 2)}, ", end = '')
+
         gasValue = 1 if yPred[0][0] > yPred[0][1] else 0
-        brakeValue = 0 if yPred[1][0] > yPred[1][1] else 1
-        steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
+        brakeValue = 1 if yPred[1][0] > yPred[1][1] else 0
+        steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
+        #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
 
         print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
 

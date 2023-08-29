@@ -74,3 +74,10 @@ def reverseGetSteer(output):
         [x], m = MIN_STEER, M = MAX_STEER, cntIntervals = CNT_INTERVALS_STEER, maxDistToPoint = STEER_MAX_DIST_TO_POINT
     )[0]) - np.array(output)) for x in xPosib]
     return xPosib[np.argmin(errs)]
+
+"""
+primesc un output cu CNT_INTERVALS_STEER pozitii (tipic output-ul retelei). determin care valoare de steer este cea mai
+probabila sa fi produs output-ul. pun valoarea adevarata sa fie fix una din cele  
+"""
+def reverseDiscreteGetSteer(output):
+    return min(MAX_STEER, MIN_STEER + np.argmax(output) * (2 * STEER_MAX_DIST_TO_POINT))
