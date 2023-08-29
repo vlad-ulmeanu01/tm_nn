@@ -14,6 +14,8 @@ dfr = pd.read_csv("../MakeRefined/refined.csv", skipinitialspace = True).sample(
 n = len(dfr["v0"])
 pc = 0.85
 
+#TODO cand schimb datasetul: torch.utils.data.WeightedRandomSampler.
+
 trainGen = torch.utils.data.DataLoader(classes.Dataset(dfr, 0, int(pc * n)), batch_size = 100, shuffle = True, num_workers = 2)
 testGen = torch.utils.data.DataLoader(classes.Dataset(dfr, int(pc * n) + 1, n - 1), batch_size = 100)
 print("ok gen!")
@@ -32,7 +34,7 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
 
         optimizer.step()
 
-        totalLoss += loss.item() * x.size()[0]  # lossVal.item() este deja "media" din BCELoss.
+        totalLoss += loss.item() * x.size()[0]  #lossVal.item() este deja "media".
         fullBatchSizes += x.size()[0]
 
         #print(f"(partial) totalLoss = {totalLoss}, fullBatchSizes = {fullBatchSizes}")
