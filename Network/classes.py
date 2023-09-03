@@ -37,7 +37,7 @@ class MainNet(torch.nn.Module):
         self.sharedNet = SharedNet()
 
         self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)  # torch.nn.Sigmoid()
-        self.softmax = torch.nn.Softmax(dim = 1)
+        self.softmax = torch.nn.Softmax(dim = -1)
 
         self.fc1_gas = torch.nn.Linear(200, LEN_OUTPUT_GAS)
         self.fc1_brake = torch.nn.Linear(200, LEN_OUTPUT_BRAKE)
