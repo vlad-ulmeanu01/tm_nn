@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import torch
 import sys
 
@@ -10,7 +11,7 @@ optimizer = torch.optim.Adam(net.parameters())
 
 #net.load_state_dict(torch.load("NetTM_partial.pt"))
 
-dfr = pd.read_csv("../MakeRefined/refined.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
+dfr = pd.read_csv("../MakeRefined/refined_noaug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
 pc = 0.8
 
@@ -20,7 +21,7 @@ trainGen = torch.utils.data.DataLoader(classes.Dataset(dfr, 0, int(pc * n)), bat
 testGen = torch.utils.data.DataLoader(classes.Dataset(dfr, int(pc * n) + 1, n - 1), batch_size = 100)
 print("ok gen!")
 
-epochCnt = 50
+epochCnt = 25
 trainLosses, testLosses = [], []
 for epoch in range(epochCnt):  #Mini Batch gradient descent.
     totalLoss, fullBatchSizes = 0, 0
@@ -57,7 +58,11 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
         print(f"Average Test Loss: {testLosses[-1]}.")
 
     torch.save(net.state_dict(), f"NetTM_partial.pt")
-    print(f"Saved NetTM_partial{epoch + 1}.pt.")
+    print(f"Saved NetTM_partial.pt.")
+
+    if np.argmin(trainLosses) == len(trainLosses) - 1:
+        torch.save(net.state_dict(), f"NetTM_best.pt")
+        print(f"({epoch + 1}) Saved NetTM_best.pt")
 
     sys.stdout.flush()
 
