@@ -39,9 +39,12 @@ def refineValue(x, pts, maxDistToPoint = None):
         maxDistToPoint = 0.5 * (pts[1] - pts[0])
     return [getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts]
 
+def refineValueSimpleKb(x, m, M):
+    return [min(1.0, x / M), 0.0] if x >= 0 else [0.0, min(1.0, x / m)]
+
 def refineValuesSimpleKb(v: list):
     m, M = min(v), max(v)
-    return [[x / M, 0] if x >= 0 else [0, x / m] for x in v]
+    return [refineValueSimpleKb(x, m, M) for x in v]
 
 """
 vreau viteza x in km/h.
@@ -85,3 +88,7 @@ probabila sa fi produs output-ul. pun valoarea adevarata sa fie fix una din cele
 """
 def reverseDiscreteGetSteer(output):
     return min(MAX_STEER, MIN_STEER + np.argmax(output) * (2 * STEER_MAX_DIST_TO_POINT))
+
+def reverseGetSimpleSteer(output):
+    ind = np.argmax(output)
+    return -65536 if ind == 0 else (0 if ind == 1 else 65536)

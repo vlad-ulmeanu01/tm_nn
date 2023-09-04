@@ -28,12 +28,12 @@ class Oracle:
         self.IND_WHEEL_MATERIALS = 9
         self.IND_WHEEL_CONTACT = 10
 
-        self.ht_points = sim_utils.load_export_points("export_pts_noaug.txt")
+        self.ht_points = sim_utils.load_export_points("export_pts_kb_aug.txt")
 
         self.dfrRacingLine = pd.read_csv("racing_line_tas_train.csv", skipinitialspace = True)
 
         self.net = classes.MainNet()
-        self.net.load_state_dict(torch.load("NetTM_CE_Relu.pt"))
+        self.net.load_state_dict(torch.load("NetTM_best_BatchNorm.pt"))
         self.net.eval()
 
         #de cat timp franez, cand am franat ultima data.
@@ -101,10 +101,10 @@ class Oracle:
                 material = [1, 0, 0, 0]
         netInput.extend(material)
 
-        netInput.extend(refine_utils.refineValue(self.timeSinceLastBrake, self.ht_points["timeSinceLastBrake"]))
-        netInput.extend(refine_utils.refineValue(self.timeSpentBraking, self.ht_points["timeSpentBraking"]))
-        netInput.extend(refine_utils.refineValue(self.timeSinceLastAir, self.ht_points["timeSinceLastAir"]))
-        netInput.extend(refine_utils.refineValue(self.timeSpentAir, self.ht_points["timeSpentAir"]))
+        netInput.append(min(1.0, self.timeSinceLastBrake / self.ht_points["timeSinceLastBrake"][1]))
+        netInput.append(min(1.0, self.timeSpentBraking / self.ht_points["timeSpentBraking"][1]))
+        netInput.append(min(1.0, self.timeSinceLastAir / self.ht_points["timeSinceLastAir"][1]))
+        netInput.append(min(1.0, self.timeSpentAir / self.ht_points["timeSpentAir"][1]))
 
         self.n[0] = len(self.state_series)
         self.time[0] = nr_utils.normalize([i * self.GAP_TIME for i in range(self.n[0])], m = 0, M = nr_utils.MAX_VALUE_TIME)
@@ -175,7 +175,7 @@ class Oracle:
 
         for ch, bestCoefs in [('x', bestCoefsX), ('y', bestCoefsY), ('z', bestCoefsZ)]:
             for i in range(21):
-                netInput.extend(refine_utils.refineValue(bestCoefs[i], self.ht_points[f"{ch}{i}"]))
+                netInput.extend(refine_utils.refineValueSimpleKb(bestCoefs[i], self.ht_points[f"{ch}{i}"][0], self.ht_points[f"{ch}{i}"][1]))
 
         #print(f"netInput size = {len(netInput)}.")
         yPred = self.net(torch.FloatTensor(netInput))
@@ -184,7 +184,8 @@ class Oracle:
 
         gasValue = 1 if yPred[0][0] > yPred[0][1] else 0
         brakeValue = 1 if yPred[1][0] > yPred[1][1] else 0
-        steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
+        steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2]])
+        #steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
         #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
 
         print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")

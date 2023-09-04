@@ -60,7 +60,7 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
     torch.save(net.state_dict(), f"NetTM_partial.pt")
     print(f"Saved NetTM_partial.pt.")
 
-    if np.argmin(trainLosses) == len(trainLosses) - 1:
+    if np.argmin(testLosses) == len(testLosses) - 1:
         torch.save(net.state_dict(), f"NetTM_best.pt")
         print(f"({epoch + 1}) Saved NetTM_best.pt")
 

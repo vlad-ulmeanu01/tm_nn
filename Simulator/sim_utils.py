@@ -51,5 +51,5 @@ def load_export_points(fName: str) -> dict:
     for line in fin.readlines():
         if len(line):
             parts = line.split()
-            ht[parts[0]] = list(map(float, parts[2:]))
+            ht[parts[0]] = list(map(float, parts[1:])) #2: inainte. nu mai am lungimea trecuta acum.
     return ht

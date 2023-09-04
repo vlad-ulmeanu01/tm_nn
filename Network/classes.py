@@ -10,8 +10,16 @@ class SharedNet(torch.nn.Module):
     def __init__(self):
         super(SharedNet, self).__init__()
 
+        self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)  # torch.nn.Sigmoid()
         self.relu = torch.nn.ReLU() #todo prelu?
+        self.leakyRelu = torch.nn.LeakyReLU()
         self.drop = torch.nn.Dropout(0.2)
+
+        self.bn2 = torch.nn.BatchNorm1d(256)
+        self.bn3 = torch.nn.BatchNorm1d(256)
+        self.bn4 = torch.nn.BatchNorm1d(128)
+        self.bn5 = torch.nn.BatchNorm1d(64)
+        self.bn6 = torch.nn.BatchNorm1d(32)
 
         self.fc1 = torch.nn.Linear(LEN_INPUT, 256)
         self.fc2 = torch.nn.Linear(256, 256)
@@ -24,11 +32,11 @@ class SharedNet(torch.nn.Module):
 
     def forward(self, x):
         out = self.relu(self.fc1(x))
-        out = self.drop(self.relu(self.fc2(out)))
-        out = self.drop(self.relu(self.fc3(out)))
-        out = self.drop(self.relu(self.fc4(out)))
-        out = self.drop(self.relu(self.fc5(out)))
-        out = self.drop(self.relu(self.fc6(out)))
+        out = self.drop(self.relu(self.bn2(self.fc2(out))))
+        out = self.drop(self.relu(self.bn3(self.fc3(out))))
+        out = self.drop(self.relu(self.bn4(self.fc4(out))))
+        out = self.drop(self.relu(self.bn5(self.fc5(out))))
+        out = self.drop(self.relu(self.bn6(self.fc6(out))))
         out = self.relu(self.fc7(out))
         out = self.relu(self.fc8(out))
         return out
@@ -38,7 +46,6 @@ class MainNet(torch.nn.Module):
         super(MainNet, self).__init__()
         self.sharedNet = SharedNet()
 
-        self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)  # torch.nn.Sigmoid()
         self.softmax = torch.nn.Softmax(dim = -1)
 
         self.fc1_gas = torch.nn.Linear(8, LEN_OUTPUT_GAS)
