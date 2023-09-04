@@ -39,6 +39,10 @@ def refineValue(x, pts, maxDistToPoint = None):
         maxDistToPoint = 0.5 * (pts[1] - pts[0])
     return [getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts]
 
+def refineValuesSimpleKb(v: list):
+    m, M = min(v), max(v)
+    return [[x / M, 0] if x >= 0 else [0, x / m] for x in v]
+
 """
 vreau viteza x in km/h.
 """

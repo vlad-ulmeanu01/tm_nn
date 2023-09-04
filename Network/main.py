@@ -11,7 +11,7 @@ optimizer = torch.optim.Adam(net.parameters())
 
 #net.load_state_dict(torch.load("NetTM_partial.pt"))
 
-dfr = pd.read_csv("../MakeRefined/refined_noaug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
+dfr = pd.read_csv("../MakeRefined/refined_kb_simple_aug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
 pc = 0.8
 
@@ -21,7 +21,7 @@ trainGen = torch.utils.data.DataLoader(classes.Dataset(dfr, 0, int(pc * n)), bat
 testGen = torch.utils.data.DataLoader(classes.Dataset(dfr, int(pc * n) + 1, n - 1), batch_size = 100)
 print("ok gen!")
 
-epochCnt = 25
+epochCnt = 100
 trainLosses, testLosses = [], []
 for epoch in range(epochCnt):  #Mini Batch gradient descent.
     totalLoss, fullBatchSizes = 0, 0

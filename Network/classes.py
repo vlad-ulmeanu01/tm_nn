@@ -1,34 +1,36 @@
 import pandas as pd
 import torch
 
-LEN_INPUT = 1626 #1820
+LEN_INPUT = 139 #1626 #1820
 LEN_OUTPUT_GAS = 2
 LEN_OUTPUT_BRAKE = 2
-LEN_OUTPUT_STEER = 129
+LEN_OUTPUT_STEER = 3 #129
 
 class SharedNet(torch.nn.Module):
     def __init__(self):
         super(SharedNet, self).__init__()
 
         self.relu = torch.nn.ReLU() #todo prelu?
-        self.drop = torch.nn.Dropout(0.1)
+        self.drop = torch.nn.Dropout(0.2)
 
-        self.fc1 = torch.nn.Linear(LEN_INPUT, 1600)
-        self.fc2 = torch.nn.Linear(1600, 800)
-        self.fc3 = torch.nn.Linear(800, 400)
-        self.fc4 = torch.nn.Linear(400, 200)
+        self.fc1 = torch.nn.Linear(LEN_INPUT, 256)
+        self.fc2 = torch.nn.Linear(256, 256)
+        self.fc3 = torch.nn.Linear(256, 256)
+        self.fc4 = torch.nn.Linear(256, 128)
+        self.fc5 = torch.nn.Linear(128, 64)
+        self.fc6 = torch.nn.Linear(64, 32)
+        self.fc7 = torch.nn.Linear(32, 16)
+        self.fc8 = torch.nn.Linear(16, 8)
 
     def forward(self, x):
-        out = self.fc1(x)
-        out = self.relu(out)
-        out = self.fc2(out)
-        out = self.relu(out)
-        out = self.drop(out)
-        out = self.fc3(out)
-        out = self.relu(out)
-        out = self.drop(out)
-        out = self.fc4(out)
-        out = self.relu(out)
+        out = self.relu(self.fc1(x))
+        out = self.drop(self.relu(self.fc2(out)))
+        out = self.drop(self.relu(self.fc3(out)))
+        out = self.drop(self.relu(self.fc4(out)))
+        out = self.drop(self.relu(self.fc5(out)))
+        out = self.drop(self.relu(self.fc6(out)))
+        out = self.relu(self.fc7(out))
+        out = self.relu(self.fc8(out))
         return out
 
 class MainNet(torch.nn.Module):
@@ -39,9 +41,9 @@ class MainNet(torch.nn.Module):
         self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)  # torch.nn.Sigmoid()
         self.softmax = torch.nn.Softmax(dim = -1)
 
-        self.fc1_gas = torch.nn.Linear(200, LEN_OUTPUT_GAS)
-        self.fc1_brake = torch.nn.Linear(200, LEN_OUTPUT_BRAKE)
-        self.fc1_steer = torch.nn.Linear(200, LEN_OUTPUT_STEER)
+        self.fc1_gas = torch.nn.Linear(8, LEN_OUTPUT_GAS)
+        self.fc1_brake = torch.nn.Linear(8, LEN_OUTPUT_BRAKE)
+        self.fc1_steer = torch.nn.Linear(8, LEN_OUTPUT_STEER)
 
     def forward(self, x):
         sharedOut = self.sharedNet(x)
@@ -66,7 +68,7 @@ class SharedLoss(torch.nn.Module):
     # presupun ca backward() se autocalculeaza dupa forward?
     def forward(self, yPred, yTruth):
         #!!y* este tuple!!!
-        return self.loss_class(yPred[0], yTruth[0]) + self.loss_class(yPred[1], yTruth[1]) + 10 * self.loss_steer(yPred[2], yTruth[2])
+        return self.loss_class(yPred[0], yTruth[0]) + self.loss_class(yPred[1], yTruth[1]) + self.loss_steer(yPred[2], yTruth[2])
 
 class Dataset(torch.utils.data.Dataset):
     #Dataset cu 2n elemente (deocamdata fara aug).
