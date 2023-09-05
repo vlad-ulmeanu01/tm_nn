@@ -11,7 +11,7 @@ optimizer = torch.optim.Adam(net.parameters())
 
 #net.load_state_dict(torch.load("NetTM_partial.pt"))
 
-dfr = pd.read_csv("../MakeRefined/refined_kb_simple_aug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
+dfr = pd.read_csv("../MakeRefined/refined_kb_simple_noaug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
 pc = 0.8
 
