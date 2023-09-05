@@ -177,14 +177,14 @@ class Oracle:
             for i in range(21):
                 netInput.extend(refine_utils.refineValueSimpleKb(bestCoefs[i], self.ht_points[f"{ch}{i}"][0], self.ht_points[f"{ch}{i}"][1]))
 
-        #print(f"netInput size = {len(netInput)}.")
-        yPred = self.net(torch.FloatTensor(netInput))
+        print(f"netInput size = {len(netInput)}.")
+        yPred = self.net(torch.FloatTensor(netInput).unsqueeze(0)) #acum orice tuplu din yPred e de forma 1, *; mai tb un [0] in mijloc la adresare.
 
-        #print(f"gas: {round(yPred[0][0], 2)} vs {round(yPred[0][1], 2)}, brake: {round(yPred[1][0], 2)} vs {round(yPred[1][1], 2)}, ", end = '')
+        print(f"gas: {round(float(yPred[0][0][0]), 2)} vs {round(float(yPred[0][0][1]), 2)}, brake: {round(float(yPred[1][0][0]), 2)} vs {round(float(yPred[1][0][1]), 2)}, ", end = '')
 
-        gasValue = 1 if yPred[0][0] > yPred[0][1] else 0
-        brakeValue = 1 if yPred[1][0] > yPred[1][1] else 0
-        steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2]])
+        gasValue = 1 if yPred[0][0][0] > yPred[0][0][1] else 0
+        brakeValue = 1 if yPred[1][0][0] > yPred[1][0][1] else 0
+        steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2][0]])
         #steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
         #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
 

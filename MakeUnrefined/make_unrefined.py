@@ -7,7 +7,8 @@ import make_input_from_csv_pair
 cnt, finalCnt = 0, 456
 l, r = map(int, sys.argv[1:])
 
-for dir in ["/home/vlad/Desktop/Probleme/Trackmania/RawDataset/Others/RL-Train1/", "/home/vlad/Desktop/Probleme/Trackmania/RawDataset/Pro/"]:
+rawDataset = "C:/Users/ulmea/Desktop/Probleme/Trackmania/test_date_roti/"
+for dir in [rawDataset + "Others/RL-Train1/", rawDataset + "Pro/"]:
     for path, subdirs, files in os.walk(dir):
         # ok = True
         # for s in ["/", "Dirt-0"]:
