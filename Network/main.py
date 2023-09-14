@@ -1,4 +1,9 @@
 import pandas as pd
+
+#incerc sa citesc intai dataframe-ul ca consuma ~3x pana cand mai da free-uri..
+dfr = pd.read_csv("../MakeRefined/refined_kb_simple_conv_noaug.csv", skipinitialspace = True) #dfr = pd.read_csv("../MakeRefined/refined_kb_simple_conv_noaug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
+print("read dataframe.")
+
 import numpy as np
 import torch
 import sys
@@ -11,7 +16,6 @@ optimizer = torch.optim.Adam(net.parameters())
 
 #net.load_state_dict(torch.load("NetTM_partial.pt"))
 
-dfr = pd.read_csv("../MakeRefined/refined_kb_simple_noaug.csv", skipinitialspace = True).sample(frac = 1).reset_index(drop = True) #random shuffle tot.
 n = len(dfr["v0"])
 pc = 0.8
 
@@ -38,7 +42,7 @@ for epoch in range(epochCnt):  #Mini Batch gradient descent.
         totalLoss += loss.item() * x.size()[0]  #lossVal.item() este deja "media".
         fullBatchSizes += x.size()[0]
 
-        #print(f"(partial) totalLoss = {totalLoss}, fullBatchSizes = {fullBatchSizes}")
+        print(f"(partial) totalLoss = {totalLoss}, fullBatchSizes = {fullBatchSizes}")
 
     trainLosses.append(totalLoss / fullBatchSizes)
 

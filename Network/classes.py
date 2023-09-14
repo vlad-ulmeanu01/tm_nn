@@ -1,7 +1,10 @@
 import pandas as pd
 import torch
+import copy
 
-LEN_INPUT = 139 #1626 #1820
+LEN_INPUT = 595 #139 #1626 #1820
+LEN_INPUT_BEFORE_COEF = 13
+LEN_INPUT_XYZ = 97 * 2 #x2 pentru +-.
 LEN_OUTPUT_GAS = 2
 LEN_OUTPUT_BRAKE = 2
 LEN_OUTPUT_STEER = 3 #129
@@ -15,15 +18,15 @@ class SharedNet(torch.nn.Module):
         self.leakyRelu = torch.nn.LeakyReLU()
         self.drop = torch.nn.Dropout(0.2)
 
-        self.bn2 = torch.nn.BatchNorm1d(256)
+        self.bn2 = torch.nn.BatchNorm1d(512)
         self.bn3 = torch.nn.BatchNorm1d(256)
         self.bn4 = torch.nn.BatchNorm1d(128)
         self.bn5 = torch.nn.BatchNorm1d(64)
         self.bn6 = torch.nn.BatchNorm1d(32)
 
-        self.fc1 = torch.nn.Linear(LEN_INPUT, 256)
-        self.fc2 = torch.nn.Linear(256, 256)
-        self.fc3 = torch.nn.Linear(256, 256)
+        self.fc1 = torch.nn.Linear(LEN_INPUT, 512)
+        self.fc2 = torch.nn.Linear(512, 512)
+        self.fc3 = torch.nn.Linear(512, 256)
         self.fc4 = torch.nn.Linear(256, 128)
         self.fc5 = torch.nn.Linear(128, 64)
         self.fc6 = torch.nn.Linear(64, 32)
@@ -94,15 +97,27 @@ class Dataset(torch.utils.data.Dataset):
     # Generates one sample of data.
     def __getitem__(self, ind):
         self.is_aug = False if ind < self.n_noaug else True
-        #TODO augumentare aici.
+        if self.is_aug:
+            ind -= self.n_noaug
 
         xs = torch.FloatTensor(self.dfr.iloc[self.l + ind, 0: LEN_INPUT].values)
 
         arrGasValue = self.dfr.iloc[self.l + ind, LEN_INPUT: LEN_INPUT + 1].values[0]
         arrBrakeValue = self.dfr.iloc[self.l + ind, LEN_INPUT + 1: LEN_INPUT + 2].values[0]
+        arrSteer = list(self.dfr.iloc[self.l + ind, LEN_INPUT + 2: LEN_INPUT + 2 + LEN_OUTPUT_STEER].values)
+
+        if self.is_aug:
+            # for i in range(LEN_INPUT_BEFORE_COEF, LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ, 2): #x-1 pentru coef_x*
+            #     aux = copy.deepcopy(xs[i])
+            #     xs[i] = xs[i+1]
+            #     xs[i+1] = aux
+
+            st, en = LEN_INPUT_BEFORE_COEF, LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ
+            xs[st: en: 2], xs[st+1: en: 2] = xs[st+1: en: 2], xs[st: en: 2].clone()
+            arrSteer = arrSteer[::-1] #flip output asteptat pentru steer.
 
         ys = torch.FloatTensor([arrGasValue, 1.0 - arrGasValue]),\
              torch.FloatTensor([arrBrakeValue, 1.0 - arrBrakeValue]),\
-             torch.FloatTensor(self.dfr.iloc[self.l + ind, LEN_INPUT + 2: LEN_INPUT + 2 + LEN_OUTPUT_STEER].values)
+             torch.FloatTensor(arrSteer)
 
         return xs, ys
