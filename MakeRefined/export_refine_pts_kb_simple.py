@@ -30,3 +30,5 @@ writeArr(fout, "timeSpentAir", dfr["timeSpentAir"])
 fout.close()
 
 print(f"totalLen = {totalLen}.")
+
+max(norm_xz, max([dfr[f" coef_x{i}"].max() for i in range(97)]))

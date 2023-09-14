@@ -84,7 +84,8 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, dfr: pd.DataFrame, l, r):
         self.dfr = dfr
         self.l, self.r = l, r
-        self.n = r - l + 1
+        self.n_noaug = r - l + 1
+        self.n = self.n_noaug * 2
 
     # Denotes the total number of samples.
     def __len__(self):
@@ -92,6 +93,9 @@ class Dataset(torch.utils.data.Dataset):
 
     # Generates one sample of data.
     def __getitem__(self, ind):
+        self.is_aug = False if ind < self.n_noaug else True
+        #TODO augumentare aici.
+
         xs = torch.FloatTensor(self.dfr.iloc[self.l + ind, 0: LEN_INPUT].values)
 
         arrGasValue = self.dfr.iloc[self.l + ind, LEN_INPUT: LEN_INPUT + 1].values[0]
