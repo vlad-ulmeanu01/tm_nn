@@ -7,7 +7,7 @@ import conv_make_input_from_csv_pair
 cnt, finalCnt = 0, 3128
 l, r = map(int, sys.argv[1:])
 
-rawDataset = "/home/vlad/Desktop/Probleme/Trackmania/RawDataset/"
+rawDataset = "C:/Users/ulmea/Desktop/Probleme/Trackmania/test_date_roti/RawDataset/"
 for path, subdirs, files in os.walk(rawDataset):
     #print(path, len(files))
 
