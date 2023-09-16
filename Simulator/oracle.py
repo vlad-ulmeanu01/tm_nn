@@ -1,3 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+plt.ioff()
+
 import pandas as pd
 import numpy as np
 import sklearn
@@ -14,7 +20,7 @@ sys.path.append("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeRefined")
 import refine_utils
 sys.path.append("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeUnrefined")
 import nr_utils
-import make_input_from_csv_pair
+import conv_make_input_from_csv_pair
 
 """
 oracolul primeste input din simulare si decide care este urmatoarea actiune.
@@ -28,12 +34,15 @@ class Oracle:
         self.IND_WHEEL_MATERIALS = 9
         self.IND_WHEEL_CONTACT = 10
 
-        self.ht_points = sim_utils.load_export_points("export_pts_kb_aug.txt")
+        #self.ht_points = sim_utils.load_export_points("export_pts_kb_noaug.txt") #export_pts_kb_aug
+        self.ht_points = {"x": 0.0131108, "y": 0.0170909, "z": 0.0127232, #"x": 131.108, "y": 170.909, "z": 127.232,
+                          "timeSinceLastBrake": 69610, "timeSpentBraking": 2380,
+                          "timeSinceLastAir": 1833, "timeSpentAir": 5210}
 
         self.dfrRacingLine = pd.read_csv("racing_line_tas_train.csv", skipinitialspace = True)
 
         self.net = classes.MainNet()
-        self.net.load_state_dict(torch.load("NetTM_best_BatchNorm.pt"))
+        self.net.load_state_dict(torch.load("NetTM_best_1609_1626.pt")) #NetTM_best_BatchNorm
         self.net.eval()
 
         #de cat timp franez, cand am franat ultima data.
@@ -101,10 +110,10 @@ class Oracle:
                 material = [1, 0, 0, 0]
         netInput.extend(material)
 
-        netInput.append(min(1.0, self.timeSinceLastBrake / self.ht_points["timeSinceLastBrake"][1]))
-        netInput.append(min(1.0, self.timeSpentBraking / self.ht_points["timeSpentBraking"][1]))
-        netInput.append(min(1.0, self.timeSinceLastAir / self.ht_points["timeSinceLastAir"][1]))
-        netInput.append(min(1.0, self.timeSpentAir / self.ht_points["timeSpentAir"][1]))
+        netInput.append(min(1.0, self.timeSinceLastBrake / self.ht_points["timeSinceLastBrake"]))
+        netInput.append(min(1.0, self.timeSpentBraking / self.ht_points["timeSpentBraking"]))
+        netInput.append(min(1.0, self.timeSinceLastAir / self.ht_points["timeSinceLastAir"]))
+        netInput.append(min(1.0, self.timeSpentAir / self.ht_points["timeSpentAir"]))
 
         self.n[0] = len(self.state_series)
         self.time[0] = nr_utils.normalize([i * self.GAP_TIME for i in range(self.n[0])], m = 0, M = nr_utils.MAX_VALUE_TIME)
@@ -119,75 +128,63 @@ class Oracle:
         # rotesc sistemul de coordonate ai (xs[0][l], ys[0][l], zs[0][l]) sa fie originea.
         tmpXs, tmpYs, tmpZs = [None] * 2, [None] * 2, [None] * 2
 
-        tmpXs[0], tmpYs[0], tmpZs[0] = make_input_from_csv_pair.moveOriginTo(
+        tmpXs[0], tmpYs[0], tmpZs[0] = conv_make_input_from_csv_pair.moveOriginTo(
             (self.xs[0][l], self.ys[0][l], self.zs[0][l],
              self.state_series[l][self.IND_YAW], self.state_series[l][self.IND_PITCH], self.state_series[l][self.IND_ROLL]),
             self.n[0], self.xs[0], self.ys[0], self.zs[0])
-        tmpXs[1], tmpYs[1], tmpZs[1] = make_input_from_csv_pair.moveOriginTo(
+        tmpXs[1], tmpYs[1], tmpZs[1] = conv_make_input_from_csv_pair.moveOriginTo(
             (self.xs[0][l], self.ys[0][l], self.zs[0][l],
              self.state_series[l][self.IND_YAW], self.state_series[l][self.IND_PITCH], self.state_series[l][self.IND_ROLL]),
             self.n[1], self.xs[1], self.ys[1], self.zs[1])
 
-        # trebuie sa am grija sa fie timpii consecutivi (tb shiftati cei din R2 sa inceapa fix dupa time[0][l]).
-        timeCuanta = self.time[1][1] - self.time[1][0]
-        nextTime = 0
+        #ma asigur ca am fix 150 de puncte din trecut si 150 de puncte din viitor.
+        tryXs = nr_utils.padLR(tmpXs[0][pre_l: l + 1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") + \
+                nr_utils.padLR(tmpXs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH],
+                               nr_utils.MIN_INTERVAL_LENGTH, "r")
+        tryYs = nr_utils.padLR(tmpYs[0][pre_l: l + 1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") + \
+                nr_utils.padLR(tmpYs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH],
+                               nr_utils.MIN_INTERVAL_LENGTH, "r")
+        tryZs = nr_utils.padLR(tmpZs[0][pre_l: l + 1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") + \
+                nr_utils.padLR(tmpZs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH],
+                               nr_utils.MIN_INTERVAL_LENGTH, "r")
 
-        # vreau ca partea de timp "pre-" sa se termine fix inainte de 0.
-        tryTime = list(np.array(self.time[0][pre_l: l + 1]) - (self.time[0][l] + timeCuanta)) + \
-                  list(np.array(self.time[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]) + (
-                              nextTime - self.time[1][indexClosestPtR2]))
+        tryXs = conv_make_input_from_csv_pair.timeSeriesModify(tryXs)
+        tryYs = conv_make_input_from_csv_pair.timeSeriesModify(tryYs)
+        tryZs = conv_make_input_from_csv_pair.timeSeriesModify(tryZs)
 
-        tryXs = tmpXs[0][pre_l: l + 1] + tmpXs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
-        tryYs = tmpYs[0][pre_l: l + 1] + tmpYs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
-        tryZs = tmpZs[0][pre_l: l + 1] + tmpZs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH]
+        steerValue = 0
+        if tryXs[60] > 5e-4:
+            steerValue = -65536
+        elif tryXs[60] < -5e-4:
+            steerValue = 65536
 
-        bestCoefsX, bestFitX = make_input_from_csv_pair.fitInterval(tryTime, tryXs, 4)
-        bestCoefsY, bestFitY = make_input_from_csv_pair.fitInterval(tryTime, tryYs, 4)
-        bestCoefsZ, bestFitZ = make_input_from_csv_pair.fitInterval(tryTime, tryZs, 4)
-        bestR = indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH
+        print(f"predicted: steerValue = {steerValue}.")
 
-        nowFitX, nowFitY, nowFitZ, r = bestFitX, bestFitY, bestFitZ, indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH
-        minCntTries = 3  # las minim 3 incercari.
-        while r < self.n[1] and (minCntTries > 0 or (
-                nowFitX > nr_utils.MIN_THRESH_XZ and nowFitY > nr_utils.MIN_THRESH_Y and nowFitZ > nr_utils.MIN_THRESH_XZ)):
-            minCntTries -= 1
-            nextTime = tryTime[-1] + timeCuanta
+        return steerValue, 1.0, 0.0
 
-            tryTime.extend(list(np.array(self.time[1][r: r + nr_utils.INTERVAL_DIFF]) + (nextTime - self.time[1][r])))
-            tryXs.extend(tmpXs[1][r: r + nr_utils.INTERVAL_DIFF])
-            tryYs.extend(tmpYs[1][r: r + nr_utils.INTERVAL_DIFF])
-            tryZs.extend(tmpZs[1][r: r + nr_utils.INTERVAL_DIFF])
-
-            r = min(self.n[1], r + nr_utils.INTERVAL_DIFF)
-
-            nowCoefsX, nowFitX = make_input_from_csv_pair.fitInterval(tryTime, tryXs, 4)
-            nowCoefsY, nowFitY = make_input_from_csv_pair.fitInterval(tryTime, tryYs, 4)
-            nowCoefsZ, nowFitZ = make_input_from_csv_pair.fitInterval(tryTime, tryZs, 4)
-
-            if (nowFitX > nr_utils.MIN_THRESH_XZ and nowFitY > nr_utils.MIN_THRESH_Y and nowFitZ > nr_utils.MIN_THRESH_XZ) or \
-                    (nowFitX > bestFitX and nowFitY > bestFitY and nowFitZ > bestFitZ):
-                bestCoefsX, bestFitX = nowCoefsX, nowFitX
-                bestCoefsY, bestFitY = nowCoefsY, nowFitY
-                bestCoefsZ, bestFitZ = nowCoefsZ, nowFitZ
-                bestR = r
-
-        #print(f"pre_l {pre_l} bestR {bestR}.")
-
-        for ch, bestCoefs in [('x', bestCoefsX), ('y', bestCoefsY), ('z', bestCoefsZ)]:
-            for i in range(21):
-                netInput.extend(refine_utils.refineValueSimpleKb(bestCoefs[i], self.ht_points[f"{ch}{i}"][0], self.ht_points[f"{ch}{i}"][1]))
-
-        print(f"netInput size = {len(netInput)}.")
-        yPred = self.net(torch.FloatTensor(netInput).unsqueeze(0)) #acum orice tuplu din yPred e de forma 1, *; mai tb un [0] in mijloc la adresare.
-
-        print(f"gas: {round(float(yPred[0][0][0]), 2)} vs {round(float(yPred[0][0][1]), 2)}, brake: {round(float(yPred[1][0][0]), 2)} vs {round(float(yPred[1][0][1]), 2)}, ", end = '')
-
-        gasValue = 1 if yPred[0][0][0] > yPred[0][0][1] else 0
-        brakeValue = 1 if yPred[1][0][0] > yPred[1][0][1] else 0
-        steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2][0]])
-        #steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
-        #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
-
-        print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
-
-        return steerValue, gasValue, brakeValue
+        # # plt.plot(tryZs)
+        # # plt.savefig(f"C:/Users/ulmea/Desktop/Probleme/Trackmania/test_simulator/dbg_turn_left/{len(self.state_series)}.png")
+        # # plt.close()
+        #
+        # for ch in ['x', 'y', 'z']:
+        #     for i in range(int(classes.LEN_INPUT_XYZ // 2)):
+        #         tmpVal = tryXs[i] if ch == 'x' else (tryYs[i] if ch == 'y' else tryZs[i])
+        #         tmpVal /= self.ht_points[ch]
+        #         tmpArr = [min(1.0, tmpVal), 0.0] if tmpVal >= 0 else [0.0, min(1.0, -tmpVal)]
+        #         netInput.extend(tmpArr)
+        #
+        # #print(f"netInput size = {len(netInput)}.")
+        # yPred = self.net(torch.FloatTensor(netInput).unsqueeze(0)) #acum orice tuplu din yPred e de forma 1, *; mai tb un [0] in mijloc la adresare.
+        #
+        # #print(f"gas: {round(float(yPred[0][0][0]), 2)} vs {round(float(yPred[0][0][1]), 2)}, brake: {round(float(yPred[1][0][0]), 2)} vs {round(float(yPred[1][0][1]), 2)}, ", end = '')
+        # print(f"steer: {[round(x.item(), 3) for x in yPred[2][0]]}")
+        #
+        # gasValue = 1 if yPred[0][0][0] > yPred[0][0][1] else 0
+        # brakeValue = 1 if yPred[1][0][0] > yPred[1][0][1] else 0
+        # steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2][0]])
+        # #steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
+        # #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
+        #
+        # print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
+        #
+        # return steerValue, gasValue, brakeValue

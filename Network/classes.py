@@ -1,4 +1,5 @@
-import pandas as pd
+import polars as pl
+import numpy as np
 import torch
 import copy
 
@@ -84,11 +85,11 @@ class Dataset(torch.utils.data.Dataset):
     #Dataset cu 2n elemente (deocamdata fara aug).
 
     #Initialization.
-    def __init__(self, dfr: pd.DataFrame, l, r):
+    def __init__(self, dfr: pl.DataFrame, l, r):
         self.dfr = dfr
         self.l, self.r = l, r
         self.n_noaug = r - l + 1
-        self.n = self.n_noaug * 2
+        self.n = self.n_noaug #* 2
 
     # Denotes the total number of samples.
     def __len__(self):
@@ -96,22 +97,20 @@ class Dataset(torch.utils.data.Dataset):
 
     # Generates one sample of data.
     def __getitem__(self, ind):
-        self.is_aug = False if ind < self.n_noaug else True
+        self.is_aug = False #if ind < self.n_noaug else True
         if self.is_aug:
             ind -= self.n_noaug
 
-        xs = torch.FloatTensor(self.dfr.iloc[self.l + ind, 0: LEN_INPUT].values)
+        currRow = self.dfr.row(self.l + ind)
+        #xs = torch.FloatTensor(currRow[0: LEN_INPUT])
+        coefs = currRow[LEN_INPUT_BEFORE_COEF: LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ * 3]
+        xs = torch.FloatTensor(list(currRow[: LEN_INPUT_BEFORE_COEF]) + list(np.clip(np.array(coefs) * 10000, 0, 1)))
 
-        arrGasValue = self.dfr.iloc[self.l + ind, LEN_INPUT: LEN_INPUT + 1].values[0]
-        arrBrakeValue = self.dfr.iloc[self.l + ind, LEN_INPUT + 1: LEN_INPUT + 2].values[0]
-        arrSteer = list(self.dfr.iloc[self.l + ind, LEN_INPUT + 2: LEN_INPUT + 2 + LEN_OUTPUT_STEER].values)
+        arrGasValue = currRow[LEN_INPUT]
+        arrBrakeValue = currRow[LEN_INPUT + 1]
+        arrSteer = currRow[LEN_INPUT + 2: LEN_INPUT + 2 + LEN_OUTPUT_STEER]
 
         if self.is_aug:
-            # for i in range(LEN_INPUT_BEFORE_COEF, LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ, 2): #x-1 pentru coef_x*
-            #     aux = copy.deepcopy(xs[i])
-            #     xs[i] = xs[i+1]
-            #     xs[i+1] = aux
-
             st, en = LEN_INPUT_BEFORE_COEF, LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ
             xs[st: en: 2], xs[st+1: en: 2] = xs[st+1: en: 2], xs[st: en: 2].clone()
             arrSteer = arrSteer[::-1] #flip output asteptat pentru steer.
