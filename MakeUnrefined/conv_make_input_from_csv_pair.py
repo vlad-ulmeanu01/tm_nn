@@ -154,24 +154,24 @@ def make_input_from_pair(fName1: str, fName2: str, mulCoef = 1000) -> str:
         indexClosestPtR2 = int(kdt.query([[xs[0][l], ys[0][l], zs[0][l]]], k = 1, return_distance = False))
 
         #rotesc sistemul de coordonate ai (xs[0][l], ys[0][l], zs[0][l]) sa fie originea.
-        tmpXs, tmpYs, tmpZs = [None] * 2, [None] * 2, [None] * 2
+        tmpXs, tmpYs, tmpZs = [[]] * 2, [[]] * 2, [[]] * 2
 
         tmpXs[0], tmpYs[0], tmpZs[0] = moveOriginTo((xs[0][l], ys[0][l], zs[0][l], dfr[0]["yaw"][l], dfr[0]["pitch"][l], dfr[0]["roll"][l]),
-                                                    n[0], xs[0], ys[0], zs[0])
+                                                    nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH,
+                                                    nr_utils.padLR(xs[0][pre_l: l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l"),
+                                                    nr_utils.padLR(ys[0][pre_l: l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l"),
+                                                    nr_utils.padLR(zs[0][pre_l: l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l"))
+
         tmpXs[1], tmpYs[1], tmpZs[1] = moveOriginTo((xs[0][l], ys[0][l], zs[0][l], dfr[0]["yaw"][l], dfr[0]["pitch"][l], dfr[0]["roll"][l]),
-                                                    n[1], xs[1], ys[1], zs[1])
+                                                    nr_utils.MIN_INTERVAL_LENGTH,
+                                                    nr_utils.padLR(xs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r"),
+                                                    nr_utils.padLR(ys[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r"),
+                                                    nr_utils.padLR(zs[1][indexClosestPtR2: indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r"))
 
         #ma asigur ca am fix 150 de puncte din trecut si 150 de puncte din viitor.
-        tryXs = nr_utils.padLR(tmpXs[0][pre_l : l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") +\
-                nr_utils.padLR(tmpXs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r")
-        tryYs = nr_utils.padLR(tmpYs[0][pre_l : l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") +\
-                nr_utils.padLR(tmpYs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r")
-        tryZs = nr_utils.padLR(tmpZs[0][pre_l : l+1], nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH, "l") +\
-                nr_utils.padLR(tmpZs[1][indexClosestPtR2 : indexClosestPtR2 + nr_utils.MIN_INTERVAL_LENGTH], nr_utils.MIN_INTERVAL_LENGTH, "r")
-
-        tryXs = timeSeriesModify(tryXs)
-        tryYs = timeSeriesModify(tryYs)
-        tryZs = timeSeriesModify(tryZs)
+        tryXs = timeSeriesModify(tmpXs[0] + tmpXs[1])
+        tryYs = timeSeriesModify(tmpYs[0] + tmpYs[1])
+        tryZs = timeSeriesModify(tmpZs[0] + tmpZs[1])
 
         #(augumentare) coef pentru flip.
         #[pre_l .. bestR). Y si Z raman la fel. coeficientii lui X flip-uit sunt -bestCoefsX direct.
