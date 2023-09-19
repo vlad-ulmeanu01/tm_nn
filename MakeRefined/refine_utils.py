@@ -5,51 +5,9 @@ def getNegExp(x):
     return 0.0 if x < -100 else neg_exp_table[max(0, min(len(neg_exp_table) - 1, int(x * 1e4 + 1000000)))]
 
 """
-Regula Freedman–Diaconis.
-imi iau niste puncte de interes din interval. pentru fiecare punct din v, vad cat de departe este de fiecare punct ales.
-"""
-def refineGetPoints(v: list, m = None, M = None, cntIntervals = None, maxDistToPoint = None):
-    binWidth = None
-    if m is None:
-        m = min(v)
-    if M is None:
-        M = max(v)
-
-    if cntIntervals is None:
-        q1, q3 = np.percentile(v, [25, 75])
-        binWidth = 200 * (q3 - q1) / np.cbrt(len(v)) #2x era normal.
-        if binWidth < 1e-9:
-            binWidth = M - m
-        cntIntervals = min(100, max(1, int(np.ceil((M - m) / binWidth))))
-
-    pts = np.linspace(m, M, cntIntervals + 1)
-
-    #distanta maxima de care imi pasa. daca un punct este fix intre 2 intervale, nu as vrea sa am exponentul mai mic de -1.
-    if maxDistToPoint is None:
-        maxDistToPoint = 0.5 * binWidth
-
-    return pts, maxDistToPoint
-
-def refineValues(v: list, m = None, M = None, cntIntervals = None, maxDistToPoint = None):
-    pts, maxDistToPoint = refineGetPoints(v, m, M, cntIntervals, maxDistToPoint)
-    return [[getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts] for x in v]
-
-def refineValue(x, pts, maxDistToPoint = None):
-    if maxDistToPoint is None:
-        maxDistToPoint = 0.5 * (pts[1] - pts[0])
-    return [getNegExp(-((x - p) / maxDistToPoint) ** 2) for p in pts]
-
-def refineValueSimpleKb(x, m, M):
-    return [min(1.0, x / M), 0.0] if x >= 0 else [0.0, min(1.0, x / m)]
-
-def refineValuesSimpleKb(v: list):
-    m, M = min(v), max(v)
-    return [refineValueSimpleKb(x, m, M) for x in v]
-
-"""
 vreau viteza x in km/h.
 """
-def refineSpeed(x: float):
+def refineSpeed(x: float) -> list:
     shifts = [100, 162, 235, 342, 501]
     x = max(min(500.0, x), 0.0)
 
@@ -63,32 +21,26 @@ def refineSpeed(x: float):
     sol[i] = x / shifts[i] if i == 0 else (x - shifts[i-1]) / (shifts[i] - shifts[i-1])
     return sol
 
-CNT_INTERVALS_STEER = 128
-MIN_STEER, MAX_STEER = -65536, 65536
-STEER_MAX_DIST_TO_POINT = 512 #1024 / 2.
-STEER_PTS = np.linspace(MIN_STEER, MAX_STEER, CNT_INTERVALS_STEER + 1)
+class Refiner:
+    class Entry:
+        def __init__(self, avg: float, std: float, fixedPoints: list):
+            self.avg = avg
+            self.std = std
+            self.fixedPoints = fixedPoints
 
-"""
-primesc un output cu CNT_INTERVALS_STEER pozitii (tipic output-ul retelei). determin care valoare de steer este cea mai
-probabila sa fi produs output-ul. 
-"""
-def reverseGetSteer(output):
-    ind = np.argmax(output)
-    diffP = np.sqrt(-np.log(output[ind])) * STEER_MAX_DIST_TO_POINT
-    xPosib = np.array([-diffP, diffP]) + min(MAX_STEER, MIN_STEER + ind * (2 * STEER_MAX_DIST_TO_POINT))
+    def __init__(self, fname: str):
+        self.ht = {}
 
-    errs = [np.linalg.norm(np.array(refineValues(
-        [x], m = MIN_STEER, M = MAX_STEER, cntIntervals = CNT_INTERVALS_STEER, maxDistToPoint = STEER_MAX_DIST_TO_POINT
-    )[0]) - np.array(output)) for x in xPosib]
-    return xPosib[np.argmin(errs)]
+        fin = open(fname)
+        for line in fin.readlines():
+            line = line.strip()
+            if len(line) and line[0] != '#':
+                arr = line.split()
+                self.ht[arr[0]] = self.Entry(float(arr[1]), float(arr[2]), list(map(float, arr[3:])))
+        fin.close()
 
-"""
-primesc un output cu CNT_INTERVALS_STEER pozitii (tipic output-ul retelei). determin care valoare de steer este cea mai
-probabila sa fi produs output-ul. pun valoarea adevarata sa fie fix una din cele  
-"""
-def reverseDiscreteGetSteer(output):
-    return min(MAX_STEER, MIN_STEER + np.argmax(output) * (2 * STEER_MAX_DIST_TO_POINT))
-
-def reverseGetSimpleSteer(output):
-    ind = np.argmax(output)
-    return -65536 if ind == 0 else (0 if ind == 1 else 65536)
+    def refineValue(self, tip: str, val: float) -> list:
+        assert(tip in self.ht)
+        val = (val - self.ht[tip].avg) / self.ht[tip].std #normalizare.
+        val = max(self.ht[tip].fixedPoints[0], min(self.ht[tip].fixedPoints[-1], val)) #clipping.
+        return [getNegExp(-(val - p) ** 2) for p in self.ht[tip].fixedPoints]

@@ -2,42 +2,49 @@ import polars as pl
 import numpy as np
 import torch
 import sys
-
 import classes
 
 if __name__ == '__main__':
-    net = classes.MainNet()
-    criterion = classes.SharedLoss()
+    net = classes.MainNet(3) #deocamdata incerc sa fac doar steer sa vad daca merge.
+    criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters())
 
-    #net.load_state_dict(torch.load("NetTM_partial.pt"))
+    csvDtypes = [pl.Float32] * 3 + [pl.Int32] * 8 + [pl.Float32] * (97 * 3) + [pl.Int32] * 3
 
-    dfr = pl.read_csv("../MakeRefined/refined_split0.csv") #refined_kb_simple_conv_noaug
-    dfr = dfr.rename({columnName: columnName.strip() for columnName in dfr.columns}) #skipinitialspace.
-    print("read dataframe.")
+    dfrTrain = pl.read_csv("/home/vlad/Desktop/Probleme/Trackmania/MakeUnrefinedKbConv/RemakeUnrefined/merged_unrefined_train.csv", dtypes = csvDtypes)
+    dfrTrain = dfrTrain.rename({columnName: columnName.strip() for columnName in dfrTrain.columns})
 
-    dfr = dfr.sample(fraction = 1.0, shuffle = True)
+    dfrTest = pl.read_csv("/home/vlad/Desktop/Probleme/Trackmania/MakeUnrefinedKbConv/RemakeUnrefined/merged_unrefined_test.csv", dtypes = csvDtypes)
+    dfrTest = dfrTest.rename({columnName: columnName.strip() for columnName in dfrTest.columns})
+
+    print("read dataframes.")
+
+    dfrTrain = dfrTrain.sample(fraction = 1.0, shuffle = True)
     print("random shuffle dataframe.")
 
-    n = dfr.shape[0]
-    pc = 0.75
+    def getSamplesWeight(dfr: pl.DataFrame):
+        n = dfr.shape[0]
 
-    #TODO x2 pentru augumentare. limit ia primele ?? linii din dataframe.
-    cntSteerLeft = dfr.limit(int(n * pc)).filter(pl.col("s_left") == 1).shape[0] #* 2
-    cntStraight = dfr.limit(int(n * pc)).filter(pl.col("s_straight") == 1).shape[0]
-    cntSteerRight = dfr.limit(int(n * pc)).filter(pl.col("s_right") == 1).shape[0] #* 2
-    pSteerLeft, pStraight, pSteerRight = 1 / (3 * cntSteerLeft), 1 / (3 * cntStraight), 1 / (3 * cntSteerRight)
+        cntSteerLeft = dfr.filter(pl.col("steer") == -65536).shape[0] * 2
+        cntStraight = dfr.filter(pl.col("steer") == 0).shape[0] * 2
+        cntSteerRight = dfr.filter(pl.col("steer") == 65536).shape[0] * 2
+        pSteerLeft, pStraight, pSteerRight = 1 / (3 * cntSteerLeft), 1 / (3 * cntStraight), 1 / (3 * cntSteerRight)
 
-    samplesWeight = [0] * int(pc * n)
-    for i in range(len(samplesWeight)):
-        s = dfr.row(i)[-3:]
-        samplesWeight[i] = pSteerLeft if s[0] == 1 else (pStraight if s[1] == 1 else pSteerRight)
+        samplesWeight = [0] * n
+        for i in range(len(samplesWeight)):
+            val = dfr.row(i)[-1]
+            samplesWeight[i] = pSteerLeft if val == -65536 else (pStraight if val == 0 else pSteerRight)
+
+        return samplesWeight + samplesWeight #duplicare pentru augumentare.
+
     print("generated samples.")
 
-    trainGen = torch.utils.data.DataLoader(classes.Dataset(dfr, 0, int(pc * n)),
+    trainSamplesWeight = getSamplesWeight(dfrTrain)
+    trainGen = torch.utils.data.DataLoader(classes.Dataset(dfrTrain, "steer"),
                                            batch_size = 100, num_workers = 2,
-                                           sampler = torch.utils.data.WeightedRandomSampler(samplesWeight, len(samplesWeight)))
-    testGen = torch.utils.data.DataLoader(classes.Dataset(dfr, int(pc * n) + 1, n - 1), batch_size = 100)
+                                           sampler = torch.utils.data.WeightedRandomSampler(trainSamplesWeight, len(trainSamplesWeight)))
+
+    testGen = torch.utils.data.DataLoader(classes.Dataset(dfrTest, "steer"), batch_size = 100)
     print("ok gen!")
 
     epochCnt = 50
@@ -80,9 +87,9 @@ if __name__ == '__main__':
                 testLosses[-1] += loss.item() * x.size()[0]
                 totalCount += x.size()[0]
 
-                for i in range(yTruth[2].shape[0]):
-                    steerTruth = np.argmax([float(y) for y in yTruth[2][i]])
-                    steerPred = np.argmax([float(y) for y in yPred[2][i]])
+                for i in range(yTruth.shape[0]):
+                    steerTruth = np.argmax([float(y) for y in yTruth[i]])
+                    steerPred = np.argmax([float(y) for y in yPred[i]])
                     confusion[steerTruth][steerPred] += 1
 
             testLosses[-1] /= totalCount

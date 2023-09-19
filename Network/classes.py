@@ -2,22 +2,27 @@ import polars as pl
 import numpy as np
 import torch
 import copy
+import sys
 
-LEN_INPUT = 595 #139 #1626 #1820
-LEN_INPUT_BEFORE_COEF = 13
-LEN_INPUT_XYZ = 97 * 2 #x2 pentru +-.
+
+sys.path.append("/home/vlad/Documents/SublimeMerge/tm_nn/MakeRefined/")
+import refine_utils
+
+LEN_INPUT = 2652
+LEN_INPUT_BEFORE_COEF = 33
+LEN_INPUT_XYZ = 97 * 9
 LEN_OUTPUT_GAS = 2
 LEN_OUTPUT_BRAKE = 2
-LEN_OUTPUT_STEER = 3 #129
+LEN_OUTPUT_STEER = 3
 
-class SharedNet(torch.nn.Module):
-    def __init__(self):
-        super(SharedNet, self).__init__()
+class MainNet(torch.nn.Module):
+    def __init__(self, lenOutput: int):
+        super(MainNet, self).__init__()
 
-        self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)  # torch.nn.Sigmoid()
-        self.relu = torch.nn.ReLU() #todo prelu?
-        self.leakyRelu = torch.nn.LeakyReLU()
+        self.stretchSigmoid = lambda x: torch.sigmoid(x / 4)
+        self.relu = torch.nn.ReLU()
         self.drop = torch.nn.Dropout(0.2)
+        self.softmax = torch.nn.Softmax(dim = -1)
 
         self.bn2 = torch.nn.BatchNorm1d(512)
         self.bn3 = torch.nn.BatchNorm1d(256)
@@ -33,6 +38,7 @@ class SharedNet(torch.nn.Module):
         self.fc6 = torch.nn.Linear(64, 32)
         self.fc7 = torch.nn.Linear(32, 16)
         self.fc8 = torch.nn.Linear(16, 8)
+        self.fc9 = torch.nn.Linear(8, lenOutput)
 
     def forward(self, x):
         out = self.relu(self.fc1(x))
@@ -43,80 +49,59 @@ class SharedNet(torch.nn.Module):
         out = self.drop(self.relu(self.bn6(self.fc6(out))))
         out = self.relu(self.fc7(out))
         out = self.relu(self.fc8(out))
+        out = self.relu(self.fc9(out))
+        out = self.softmax(out)
+
         return out
 
-class MainNet(torch.nn.Module):
-    def __init__(self):
-        super(MainNet, self).__init__()
-        self.sharedNet = SharedNet()
-
-        self.softmax = torch.nn.Softmax(dim = -1)
-
-        self.fc1_gas = torch.nn.Linear(8, LEN_OUTPUT_GAS)
-        self.fc1_brake = torch.nn.Linear(8, LEN_OUTPUT_BRAKE)
-        self.fc1_steer = torch.nn.Linear(8, LEN_OUTPUT_STEER)
-
-    def forward(self, x):
-        sharedOut = self.sharedNet(x)
-
-        gasOut = self.fc1_gas(sharedOut)
-        gasOut = self.softmax(gasOut)
-
-        brakeOut = self.fc1_brake(sharedOut)
-        brakeOut = self.softmax(brakeOut)
-
-        steerOut = self.fc1_steer(sharedOut)
-        steerOut = self.softmax(steerOut)
-
-        return gasOut, brakeOut, steerOut
-
-class SharedLoss(torch.nn.Module):
-    def __init__(self):
-        super(SharedLoss, self).__init__()
-        self.loss_class = torch.nn.BCELoss()
-        self.loss_steer = torch.nn.CrossEntropyLoss() #torch.nn.MSELoss()
-
-    # presupun ca backward() se autocalculeaza dupa forward?
-    def forward(self, yPred, yTruth):
-        #!!y* este tuple!!!
-        return self.loss_class(yPred[0], yTruth[0]) + self.loss_class(yPred[1], yTruth[1]) + self.loss_steer(yPred[2], yTruth[2])
-
 class Dataset(torch.utils.data.Dataset):
-    #Dataset cu 2n elemente (deocamdata fara aug).
-
     #Initialization.
-    def __init__(self, dfr: pl.DataFrame, l, r):
+    def __init__(self, dfr: pl.DataFrame, outputType: str):
         self.dfr = dfr
-        self.l, self.r = l, r
-        self.n_noaug = r - l + 1
-        self.n = self.n_noaug #* 2
+        self.n = dfr.shape[0] * 2
+        self.ref = refine_utils.Refiner("/home/vlad/Documents/SublimeMerge/tm_nn/MakeRefined/export_points_conv_normal.txt")
+        self.outputType = outputType
+        assert(outputType in ["gas", "brake", "steer"])
 
-    # Denotes the total number of samples.
+    #Denotes the total number of samples.
     def __len__(self):
         return self.n
 
-    # Generates one sample of data.
+    #Generates one sample of data.
     def __getitem__(self, ind):
-        self.is_aug = False #if ind < self.n_noaug else True
+        self.is_aug = False if ind < self.dfr.shape[0] else True
         if self.is_aug:
-            ind -= self.n_noaug
+            ind -= self.dfr.shape[0]
 
-        currRow = self.dfr.row(self.l + ind)
-        #xs = torch.FloatTensor(currRow[0: LEN_INPUT])
-        coefs = currRow[LEN_INPUT_BEFORE_COEF: LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ * 3]
-        xs = torch.FloatTensor(list(currRow[: LEN_INPUT_BEFORE_COEF]) + list(np.clip(np.array(coefs) * 10000, 0, 1)))
+        currRow = list(self.dfr.row(ind))
 
-        arrGasValue = currRow[LEN_INPUT]
-        arrBrakeValue = currRow[LEN_INPUT + 1]
-        arrSteer = currRow[LEN_INPUT + 2: LEN_INPUT + 2 + LEN_OUTPUT_STEER]
+        xs = []
+
+        xs.extend(refine_utils.refineSpeed(np.linalg.norm(np.array(currRow[:3])) * 3.6))
+        xs.extend(currRow[3:7])
+        xs.extend(self.ref.refineValue("timeSinceLastBrake", currRow[7]))
+        xs.extend(self.ref.refineValue("timeSpentBraking", currRow[8]))
+        xs.extend(self.ref.refineValue("timeSinceLastAir", currRow[9]))
+        xs.extend(self.ref.refineValue("timeSpentAir", currRow[10]))
+        z = 11
+        for ch in ['x', 'y', 'z']:
+            for i in range(97):
+                if self.is_aug and ch == 'x':
+                    xs.extend(self.ref.refineValue(ch, -currRow[z]))
+                else:
+                    xs.extend(self.ref.refineValue(ch, currRow[z]))
+                z += 1
+
+        xs = torch.FloatTensor(xs)
 
         if self.is_aug:
-            st, en = LEN_INPUT_BEFORE_COEF, LEN_INPUT_BEFORE_COEF + LEN_INPUT_XYZ
-            xs[st: en: 2], xs[st+1: en: 2] = xs[st+1: en: 2], xs[st: en: 2].clone()
-            arrSteer = arrSteer[::-1] #flip output asteptat pentru steer.
+            currRow[z + 2] *= -1
 
-        ys = torch.FloatTensor([arrGasValue, 1.0 - arrGasValue]),\
-             torch.FloatTensor([arrBrakeValue, 1.0 - arrBrakeValue]),\
-             torch.FloatTensor(arrSteer)
+        if self.outputType == "gas":
+            ys = torch.FloatTensor([currRow[z], 1.0 - currRow[z]])
+        elif self.outputType == "brake":
+            ys = torch.FloatTensor([currRow[z + 1], 1.0 - currRow[z + 1]])
+        else:
+            ys = torch.FloatTensor([1, 0, 0] if currRow[z + 2] == -65536 else ([0, 1, 0] if currRow[z + 2] == 0 else [0, 0, 1]))
 
         return xs, ys
