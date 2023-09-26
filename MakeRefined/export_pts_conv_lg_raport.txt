@@ -1,0 +1,11 @@
+#tip nume ...
+#pentru lg: min(1, (a + lg(max(val, 10**(-a))) / b). am viraje complete cu val max 5e-4 dar val max observabila este ~1e2.
+#pentru raport: min(1, val / a).
+lg x 9 8
+lg y 9 8
+lg z 9 8
+raport timeSinceLastBrake 23210
+raport timeSpentBraking 1090
+raport timeSinceLastAir 7570
+raport timeSpentAir 3390
+

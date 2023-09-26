@@ -95,7 +95,7 @@ def timeSeriesModify(v: list) -> list:
 primeste 2 nume de fisiere csv. intoarce numele csv-ului in care au fost scrise niste inputuri nerafinate pentru retea.
 mulCoef: in acest format coeficientii sunt destul de mici. round(.., 3) ii cam baga in 0. coef bagati in .csv ca round(.. * mulCoef, 3).
 """
-def make_input_from_pair(fName1: str, fName2: str, mulCoef = 1000) -> str:
+def make_input_from_pair(fName1: str, fName2: str, coef_precision = 6) -> str:
     dfr = [pd.read_csv(fName1, skipinitialspace = True), pd.read_csv(fName2, skipinitialspace = True)]
 
     outName = str(int(ty.time() * 10000)) + ".csv"
@@ -118,6 +118,10 @@ def make_input_from_pair(fName1: str, fName2: str, mulCoef = 1000) -> str:
     zs = [nr_utils.normalize([dfr[0]["z"][i] for i in range(n[0])], m = 0, M = nr_utils.MAX_VALUE_XZ), nr_utils.normalize([dfr[1]["z"][i] for i in range(n[1])], m = 0, M = nr_utils.MAX_VALUE_XZ)]
 
     kdt = sklearn.neighbors.KDTree([[xs[1][i], ys[1][i], zs[1][i]] for i in range(n[1])], leaf_size = 30, metric = "euclidean")
+
+    #TODO ignora steer straight daca exista steer left/right in urmatoarele 1.5s.
+    nonStraightSteers = [i for i in range(n[0]) if dfr[0]["steer"][i] != 0]
+    nonStraightIndex = 0
 
     for l in range(n[0]):
         if dfr[0]["brake"][l] == 1:
@@ -147,7 +151,17 @@ def make_input_from_pair(fName1: str, fName2: str, mulCoef = 1000) -> str:
                 else:
                     material = [1, 0, 0, 0]
 
+        while nonStraightIndex < len(nonStraightSteers) and nonStraightSteers[nonStraightIndex] <= l:
+            nonStraightIndex += 1
+
         if l % nr_utils.FOR_JUMP != 0:
+            continue
+
+        if dfr[0]["steer"][l] == 0 and nonStraightIndex < len(nonStraightSteers) and\
+           nonStraightSteers[nonStraightIndex] - l < nr_utils.MIN_STEADY_INTERVAL:
+            continue
+
+        if dfr[0]["steer"][l] != 0:
             continue
 
         pre_l = max(0, l - nr_utils.MAIN_REPLAY_PRECEDENT_LENGTH + 1)
@@ -175,13 +189,13 @@ def make_input_from_pair(fName1: str, fName2: str, mulCoef = 1000) -> str:
 
         #(augumentare) coef pentru flip.
         #[pre_l .. bestR). Y si Z raman la fel. coeficientii lui X flip-uit sunt -bestCoefsX direct.
-        fout.write(f"{dfr[0]['vx'][l]}, {dfr[0]['vy'][l]}, {dfr[0]['vz'][l]}, {material[0]}, {material[1]}, {material[2]}, {material[3]}, {timeSinceLastBrake}, {timeSpentBraking}, {timeSinceLastAir}, {timeSpentAir}, ")
+        fout.write(f"{round(dfr[0]['vx'][l], 3)}, {round(dfr[0]['vy'][l], 3)}, {round(dfr[0]['vz'][l], 3)}, {material[0]}, {material[1]}, {material[2]}, {material[3]}, {timeSinceLastBrake}, {timeSpentBraking}, {timeSinceLastAir}, {timeSpentAir}, ")
         for x in tryXs:
-            fout.write(f"{round(mulCoef * x, 3)}, ")
+            fout.write(f"{round(x, coef_precision)}, ")
         for y in tryYs:
-            fout.write(f"{round(mulCoef * y, 3)}, ")
+            fout.write(f"{round(y, coef_precision)}, ")
         for z in tryZs:
-            fout.write(f"{round(mulCoef * z, 3)}, ")
+            fout.write(f"{round(z, coef_precision)}, ")
         fout.write(f"{dfr[0]['gas'][l] if l > 0 else 1}, {dfr[0]['brake'][l]}, {dfr[0]['steer'][l]}\n")
 
     fout.close()

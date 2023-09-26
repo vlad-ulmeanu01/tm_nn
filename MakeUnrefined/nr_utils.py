@@ -6,9 +6,10 @@ MAX_VALUE_Y = 256 #cea mai mare valoare pe care o poate lua masina pe axa Y.
 
 MAIN_REPLAY_PRECEDENT_LENGTH = 150 #cat iau inapoi din punctul curent din R1.
 MIN_INTERVAL_LENGTH = 150 #100 #o secunda.
+MIN_STEADY_INTERVAL = 5 #iau in considerare steer straight daca Replay nu vireaza in urmatoarele 50 de sutimi.
 INTERVAL_DIFF = 50 #sarituri de jumatate de secunda in for cand incerc sa lungesc intervalul.
 MIN_THRESH_XZ, MIN_THRESH_Y = 0.9, 0.8 #scor minim pentru axe ai accept o largire.
-FOR_JUMP = 10 #o data la cate iteratii calculez.
+FOR_JUMP = 10 #(normal 10, l-am pus 5 pt straight steady) o data la cate iteratii calculez.
 
 def normalize(v: list, m = None, M = None) -> list:
     v = copy.deepcopy(v)

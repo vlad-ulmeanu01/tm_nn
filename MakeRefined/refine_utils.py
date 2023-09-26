@@ -4,11 +4,12 @@ neg_exp_table = [np.exp(x) for x in np.linspace(-100, 0, 10**6)]
 def getNegExp(x):
     return 0.0 if x < -100 else neg_exp_table[max(0, min(len(neg_exp_table) - 1, int(x * 1e4 + 1000000)))]
 
+shifts = [100, 162, 235, 342, 501]
+
 """
 vreau viteza x in km/h.
 """
 def refineSpeed(x: float) -> list:
-    shifts = [100, 162, 235, 342, 501]
     x = max(min(500.0, x), 0.0)
 
     #0 -- 100 -- 162 -- 235 -- 342 -- 500.
@@ -21,12 +22,15 @@ def refineSpeed(x: float) -> list:
     sol[i] = x / shifts[i] if i == 0 else (x - shifts[i-1]) / (shifts[i] - shifts[i-1])
     return sol
 
+def reverseGetSimpleSteer(output):
+    ind = np.argmax(output)
+    return -65536 if ind == 0 else (0 if ind == 1 else 65536)
+
 class Refiner:
     class Entry:
-        def __init__(self, avg: float, std: float, fixedPoints: list):
-            self.avg = avg
-            self.std = std
-            self.fixedPoints = fixedPoints
+        def __init__(self, tip: str, params: tuple):
+            self.tip = tip
+            self.params = params
 
     def __init__(self, fname: str):
         self.ht = {}
@@ -36,11 +40,28 @@ class Refiner:
             line = line.strip()
             if len(line) and line[0] != '#':
                 arr = line.split()
-                self.ht[arr[0]] = self.Entry(float(arr[1]), float(arr[2]), list(map(float, arr[3:])))
+                if arr[0] == "lg":
+                    self.ht[arr[1]] = self.Entry("lg", (int(arr[2]), int(arr[3])))
+                elif arr[0] == "raport":
+                    self.ht[arr[1]] = self.Entry("raport", (int(arr[2]),))
+                else:
+                    assert(False)
+
         fin.close()
 
-    def refineValue(self, tip: str, val: float) -> list:
-        assert(tip in self.ht)
-        val = (val - self.ht[tip].avg) / self.ht[tip].std #normalizare.
-        val = max(self.ht[tip].fixedPoints[0], min(self.ht[tip].fixedPoints[-1], val)) #clipping.
-        return [getNegExp(-(val - p) ** 2) for p in self.ht[tip].fixedPoints]
+    def refineValue(self, nume: str, val: float) -> list:
+        assert(nume in self.ht)
+        if self.ht[nume].tip == "lg":
+            a, b = self.ht[nume].params
+            sol = [0.0] * 2
+            ind = 0 if val >= 0 else 1
+            sol[ind] = min(1.0, (a + np.log10(max(10 ** (-a), abs(val)))) / b)
+            return sol
+        elif self.ht[nume].tip == "raport":
+            a, = self.ht[nume].params
+            sol = [0.0] * 2
+            ind = 0 if val >= 0 else 1
+            sol[ind] = min(1.0, abs(val) / a)
+            return sol
+        else:
+            assert(False)

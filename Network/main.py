@@ -4,6 +4,9 @@ import torch
 import sys
 import classes
 
+sys.path.append("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeRefined/")
+import refine_utils
+
 if __name__ == '__main__':
     net = classes.MainNet(3) #deocamdata incerc sa fac doar steer sa vad daca merge.
     criterion = torch.nn.CrossEntropyLoss()
@@ -11,10 +14,10 @@ if __name__ == '__main__':
 
     csvDtypes = [pl.Float32] * 3 + [pl.Int32] * 8 + [pl.Float32] * (97 * 3) + [pl.Int32] * 3
 
-    dfrTrain = pl.read_csv("/home/vlad/Desktop/Probleme/Trackmania/MakeUnrefinedKbConv/RemakeUnrefined/merged_unrefined_train.csv", dtypes = csvDtypes)
+    dfrTrain = pl.read_csv("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeUnrefined/merged_unrefined_train.csv", dtypes = csvDtypes)
     dfrTrain = dfrTrain.rename({columnName: columnName.strip() for columnName in dfrTrain.columns})
 
-    dfrTest = pl.read_csv("/home/vlad/Desktop/Probleme/Trackmania/MakeUnrefinedKbConv/RemakeUnrefined/merged_unrefined_test.csv", dtypes = csvDtypes)
+    dfrTest = pl.read_csv("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeUnrefined/merged_unrefined_test.csv", dtypes = csvDtypes)
     dfrTest = dfrTest.rename({columnName: columnName.strip() for columnName in dfrTest.columns})
 
     print("read dataframes.")
@@ -48,7 +51,8 @@ if __name__ == '__main__':
     print("ok gen!")
 
     epochCnt = 50
-    dbgEveryBatch = 100 #o data la 100 de batch-uri dau un print in x, yTruth = ...
+    dbgEveryBatch = 100 #o data la ?? de batch-uri dau un print in x, yTruth = ...
+    dbgCntSteer = [0] * 3
 
     trainLosses, testLosses = [], []
     for epoch in range(epochCnt):  #Mini Batch gradient descent.
@@ -67,9 +71,11 @@ if __name__ == '__main__':
             totalLoss += loss.item() * x.size()[0]  #lossVal.item() este deja "media".
             fullBatchSizes += x.size()[0]
 
+            dbgCntSteer[int(yTruth.argmax())] += 1
+
             batchCount += 1
             if batchCount >= dbgEveryBatch:
-                print(f"(partial) totalLoss/fullBatchSizes = {totalLoss / fullBatchSizes}")
+                print(f"(partial) totalLoss/fullBatchSizes = {totalLoss / fullBatchSizes}, L/S/R = {[round(x / sum(dbgCntSteer), 3) for x in dbgCntSteer]}")
                 batchCount = 0
 
         trainLosses.append(totalLoss / fullBatchSizes)

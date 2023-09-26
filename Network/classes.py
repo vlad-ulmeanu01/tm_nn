@@ -5,12 +5,12 @@ import copy
 import sys
 
 
-sys.path.append("/home/vlad/Documents/SublimeMerge/tm_nn/MakeRefined/")
+sys.path.append("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeRefined/")
 import refine_utils
 
-LEN_INPUT = 2652
-LEN_INPUT_BEFORE_COEF = 33
-LEN_INPUT_XYZ = 97 * 9
+LEN_INPUT = 599
+LEN_INPUT_BEFORE_COEF = 17
+LEN_INPUT_XYZ = 97 * 2
 LEN_OUTPUT_GAS = 2
 LEN_OUTPUT_BRAKE = 2
 LEN_OUTPUT_STEER = 3
@@ -30,6 +30,7 @@ class MainNet(torch.nn.Module):
         self.bn5 = torch.nn.BatchNorm1d(64)
         self.bn6 = torch.nn.BatchNorm1d(32)
 
+        # self.fcdumb = torch.nn.Linear(2, lenOutput)
         self.fc1 = torch.nn.Linear(LEN_INPUT, 512)
         self.fc2 = torch.nn.Linear(512, 512)
         self.fc3 = torch.nn.Linear(512, 256)
@@ -50,6 +51,7 @@ class MainNet(torch.nn.Module):
         out = self.relu(self.fc7(out))
         out = self.relu(self.fc8(out))
         out = self.relu(self.fc9(out))
+        # out = self.relu(self.fcdumb(x))
         out = self.softmax(out)
 
         return out
@@ -59,7 +61,7 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, dfr: pl.DataFrame, outputType: str):
         self.dfr = dfr
         self.n = dfr.shape[0] * 2
-        self.ref = refine_utils.Refiner("/home/vlad/Documents/SublimeMerge/tm_nn/MakeRefined/export_points_conv_normal.txt")
+        self.ref = refine_utils.Refiner("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeRefined/export_pts_conv_lg_raport.txt")
         self.outputType = outputType
         assert(outputType in ["gas", "brake", "steer"])
 
@@ -92,16 +94,24 @@ class Dataset(torch.utils.data.Dataset):
                     xs.extend(self.ref.refineValue(ch, currRow[z]))
                 z += 1
 
+        # if self.is_aug:
+        #     xs.extend(self.ref.refineValue('x', -currRow[11 + 80]))
+        # else:
+        #     xs.extend(self.ref.refineValue('x', currRow[11 + 80]))
+
         xs = torch.FloatTensor(xs)
+        assert(currRow[-1] in [-65536, 0, 65536])
 
         if self.is_aug:
             currRow[z + 2] *= -1
 
         if self.outputType == "gas":
             ys = torch.FloatTensor([currRow[z], 1.0 - currRow[z]])
+            #ys = torch.FloatTensor([1.0, 0.0])
         elif self.outputType == "brake":
             ys = torch.FloatTensor([currRow[z + 1], 1.0 - currRow[z + 1]])
+            #ys = torch.FloatTensor([0.0, 1.0])
         else:
-            ys = torch.FloatTensor([1, 0, 0] if currRow[z + 2] == -65536 else ([0, 1, 0] if currRow[z + 2] == 0 else [0, 0, 1]))
+            ys = torch.FloatTensor([1, 0, 0] if currRow[-1] == -65536 else ([0, 1, 0] if currRow[-1] == 0 else [0, 0, 1]))
 
         return xs, ys
