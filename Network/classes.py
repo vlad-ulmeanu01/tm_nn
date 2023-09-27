@@ -107,10 +107,8 @@ class Dataset(torch.utils.data.Dataset):
 
         if self.outputType == "gas":
             ys = torch.FloatTensor([currRow[z], 1.0 - currRow[z]])
-            #ys = torch.FloatTensor([1.0, 0.0])
         elif self.outputType == "brake":
             ys = torch.FloatTensor([currRow[z + 1], 1.0 - currRow[z + 1]])
-            #ys = torch.FloatTensor([0.0, 1.0])
         else:
             ys = torch.FloatTensor([1, 0, 0] if currRow[-1] == -65536 else ([0, 1, 0] if currRow[-1] == 0 else [0, 0, 1]))
 

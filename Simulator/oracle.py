@@ -34,16 +34,17 @@ class Oracle:
         self.IND_WHEEL_MATERIALS = 9
         self.IND_WHEEL_CONTACT = 10
 
-        #self.ht_points = sim_utils.load_export_points("export_pts_kb_noaug.txt") #export_pts_kb_aug
-        self.ht_points = {"x": 0.0131108, "y": 0.0170909, "z": 0.0127232, #"x": 131.108, "y": 170.909, "z": 127.232,
-                          "timeSinceLastBrake": 69610, "timeSpentBraking": 2380,
-                          "timeSinceLastAir": 1833, "timeSpentAir": 5210}
+        self.ref = refine_utils.Refiner("C:/Users/ulmea/Documents/GitHub/tm_nn/MakeRefined/export_pts_conv_lg_raport.txt")
 
-        self.dfrRacingLine = pd.read_csv("racing_line_tas_train.csv", skipinitialspace = True)
+        self.dfrRacingLine = pd.read_csv("racing_line_TMN_A-0.csv", skipinitialspace = True)
 
-        self.net = classes.MainNet()
-        self.net.load_state_dict(torch.load("NetTM_best_1609_1626.pt")) #NetTM_best_BatchNorm
-        self.net.eval()
+        self.netSteer = classes.MainNet(3)
+        self.netSteer.load_state_dict(torch.load("NetTM_best_steer_steady_5_12gen.pt")) #NetTM_best_BatchNorm
+        self.netSteer.eval()
+
+        # self.netBrake = classes.MainNet(2)
+        # self.netBrake.load_state_dict(torch.load("NetTM_best_brake_steady5_5gen.pt"))
+        # self.netBrake.eval()
 
         #de cat timp franez, cand am franat ultima data.
         self.timeSinceLastBrake, self.timeSpentBraking = 0, 0
@@ -110,11 +111,12 @@ class Oracle:
                 material = [1, 0, 0, 0]
         netInput.extend(material)
 
-        netInput.append(min(1.0, self.timeSinceLastBrake / self.ht_points["timeSinceLastBrake"]))
-        netInput.append(min(1.0, self.timeSpentBraking / self.ht_points["timeSpentBraking"]))
-        netInput.append(min(1.0, self.timeSinceLastAir / self.ht_points["timeSinceLastAir"]))
-        netInput.append(min(1.0, self.timeSpentAir / self.ht_points["timeSpentAir"]))
+        netInput.extend(self.ref.refineValue("timeSinceLastBrake", self.timeSinceLastBrake))
+        netInput.extend(self.ref.refineValue("timeSpentBraking", self.timeSpentBraking))
+        netInput.extend(self.ref.refineValue("timeSinceLastAir", self.timeSinceLastAir))
+        netInput.extend(self.ref.refineValue("timeSpentAir", self.timeSpentAir))
 
+        #TODO optimizare si aici la cat bagi in moveOriginTo.
         self.n[0] = len(self.state_series)
         self.time[0] = nr_utils.normalize([i * self.GAP_TIME for i in range(self.n[0])], m = 0, M = nr_utils.MAX_VALUE_TIME)
         self.xs[0] = nr_utils.normalize([self.state_series[i][self.IND_X] for i in range(self.n[0])], m = 0, M = nr_utils.MAX_VALUE_XZ)
@@ -152,39 +154,30 @@ class Oracle:
         tryYs = conv_make_input_from_csv_pair.timeSeriesModify(tryYs)
         tryZs = conv_make_input_from_csv_pair.timeSeriesModify(tryZs)
 
-        steerValue = 0
-        if tryXs[60] > 5e-4:
-            steerValue = -65536
-        elif tryXs[60] < -5e-4:
-            steerValue = 65536
+        # plt.plot(tryZs)
+        # plt.savefig(f"C:/Users/ulmea/Desktop/Probleme/Trackmania/test_simulator/dbg_turn_left/{len(self.state_series)}.png")
+        # plt.close()
 
-        print(f"predicted: steerValue = {steerValue}.")
+        for i in range(97):
+            netInput.extend(self.ref.refineValue('x', tryXs[i]))
+        for i in range(97):
+            netInput.extend(self.ref.refineValue('y', tryYs[i]))
+        for i in range(97):
+            netInput.extend(self.ref.refineValue('z', tryZs[i]))
+        # netInput.extend(self.ref.refineValue('x', tryXs[80]))
+        # print(netInput)
 
-        return steerValue, 1.0, 0.0
+        #print(f"netInput size = {len(netInput)}.")
+        yPredSteer = self.netSteer(torch.FloatTensor(netInput).unsqueeze(0)) #acum orice tuplu din yPred e de forma 1, *; mai tb un [0] in mijloc la adresare.
+        #yPredBrake = self.netBrake(torch.FloatTensor(netInput).unsqueeze(0))
 
-        # # plt.plot(tryZs)
-        # # plt.savefig(f"C:/Users/ulmea/Desktop/Probleme/Trackmania/test_simulator/dbg_turn_left/{len(self.state_series)}.png")
-        # # plt.close()
-        #
-        # for ch in ['x', 'y', 'z']:
-        #     for i in range(int(classes.LEN_INPUT_XYZ // 2)):
-        #         tmpVal = tryXs[i] if ch == 'x' else (tryYs[i] if ch == 'y' else tryZs[i])
-        #         tmpVal /= self.ht_points[ch]
-        #         tmpArr = [min(1.0, tmpVal), 0.0] if tmpVal >= 0 else [0.0, min(1.0, -tmpVal)]
-        #         netInput.extend(tmpArr)
-        #
-        # #print(f"netInput size = {len(netInput)}.")
-        # yPred = self.net(torch.FloatTensor(netInput).unsqueeze(0)) #acum orice tuplu din yPred e de forma 1, *; mai tb un [0] in mijloc la adresare.
-        #
-        # #print(f"gas: {round(float(yPred[0][0][0]), 2)} vs {round(float(yPred[0][0][1]), 2)}, brake: {round(float(yPred[1][0][0]), 2)} vs {round(float(yPred[1][0][1]), 2)}, ", end = '')
-        # print(f"steer: {[round(x.item(), 3) for x in yPred[2][0]]}")
-        #
-        # gasValue = 1 if yPred[0][0][0] > yPred[0][0][1] else 0
-        # brakeValue = 1 if yPred[1][0][0] > yPred[1][0][1] else 0
-        # steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPred[2][0]])
-        # #steerValue = refine_utils.reverseDiscreteGetSteer([x.item() for x in yPred[2]])
-        # #steerValue = max(-65536, min(65536, int(refine_utils.reverseGetSteer([x.item() for x in yPred[2]]))))
-        #
-        # print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
-        #
-        # return steerValue, gasValue, brakeValue
+        # print(f"steer: {[round(x.item(), 3) for x in yPredSteer[0]]}, brake: {[round(x.item(), 3) for x in yPredBrake[0]]}.")
+        print(f"steer: {[round(x.item(), 3) for x in yPredSteer[0]]}.")
+
+        gasValue = 1 #1 if yPred[0][0][0] > yPred[0][0][1] else 0
+        brakeValue = 0 #1 if yPredBrake[0][0] > yPredBrake[0][1] else 0
+        steerValue = refine_utils.reverseGetSimpleSteer([x.item() for x in yPredSteer[0]])
+
+        #print(f"predicted: steerValue = {steerValue}, gasValue = {gasValue}, brakeValue = {brakeValue}.")
+
+        return steerValue, gasValue, brakeValue

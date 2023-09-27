@@ -1,9 +1,0 @@
-#nume avg stddev; dupa normalizare la avg = 0, stddev = 1, unde se regasesc punctele fixe, ex avg + ?stddev. orice dupa limite e clipuit.
-x 0.0 2.79338 -3.0 -2.0 -1.0 -0.5 0.0 0.5 1.0 2.0 3.0
-y 0.0743593 4.39548 -3.0 -2.0 -1.0 -0.5 0.0 0.5 1.0 2.0 3.0
-z 6.52398 3.07333 -3.0 -2.0 -1.0 -0.5 0.0 0.5 1.0 2.0 3.0
-timeSinceLastBrake 3268.85 4245.48 -0.769 0.0 0.5 1.0 2.0 3.0
-timeSpentBraking 21.6836 105.358 -0.205 0.0 0.5 1.0 2.0 3.0
-timeSinceLastAir 820.069 1228.87 -0.667 0.0 0.5 1.0 2.0 3.0
-timeSpentAir 196.853 518.661 -0.379 0.0 0.5 1.0 2.0 3.0
-
